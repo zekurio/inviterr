@@ -1,0 +1,17 @@
+webserver:
+  addr: "127.0.0.1:8080"
+  tls:
+    enabled: false
+    cert: "cert.pem"
+    key: "key.pem"
+
+jellyfin:
+  enabled: true
+  baseURL: "http://localhost:8096"
+  apiKey: "your-jellyfin-api-key"
+  username: "your-username"
+  password: "your-password"
+jellyseerr:
+  enabled: false
+  baseURL: "http://localhost:5055"
+  apiKey: "your-jellyseerr-api-key"
