@@ -1,7 +1,8 @@
 package static
 
 var (
-	DiConfig         = "config"
-	DiJellyfinClient = "jellyfin_client"
-	DiLogger         = "logger"
+	DiConfig    = "config"
+	DiJellyfin  = "jellyfin"
+	DiLogger    = "logger"
+	DiWebServer = "webserver"
 )

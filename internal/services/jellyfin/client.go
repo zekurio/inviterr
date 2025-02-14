@@ -3,11 +3,10 @@ package jellyfin
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/sarulabs/di/v2"
 	jf "github.com/sj14/jellyfin-go/api"
 
-	"github.com/zekurio/inviterr/internal/services/config"
+	"github.com/zekurio/inviterr/internal/models"
 	"github.com/zekurio/inviterr/internal/util/static"
 )
 
@@ -17,7 +16,7 @@ type Wrapper struct {
 }
 
 func New(ctn di.Container) *Wrapper {
-	cfg := ctn.Get(static.DiConfig).(config.Provider).Config()
+	cfg := ctn.Get(static.DiConfig).(models.Config)
 
 	jfConfiguration := &jf.Configuration{
 		Servers:       jf.ServerConfigurations{{URL: cfg.Jellyfin.BaseURL}},
@@ -32,39 +31,17 @@ func New(ctn di.Container) *Wrapper {
 	}
 }
 
-// ListUsers fetches a list of users from the Jellyfin server.
-// GET /Users
-func (w *Wrapper) ListUsers() ([]jf.UserDto, error) {
-	result, resp, err := w.client.UserAPI.GetUsers(w.ctx).Execute()
+func (w *Wrapper) AuthenticateUser(username, password string) (user *jf.NullableUserDto, accessToken string, err error) {
+	res, resp, err := w.client.UserAPI.AuthenticateUserByName(w.ctx).AuthenticateUserByName(jf.AuthenticateUserByName{
+		Username: *jf.NewNullableString(&username),
+		Pw:       *jf.NewNullableString(&password),
+	}).Execute()
 	if err != nil || resp.StatusCode != 200 {
-		log.Error("Failed to list users", "error", err, "status", resp.StatusCode)
-		return nil, err
+		return
 	}
 
-	return result, nil
-}
+	user = &res.User
+	accessToken = *res.AccessToken.Get()
 
-// UpdateUserPolicy updates the policy of a user.
-// POST /Users/{userId}/Policy
-func (w *Wrapper) UpdateUserPolicy(userId string, policy jf.UserPolicy) error {
-	resp, err := w.client.UserAPI.UpdateUserPolicy(w.ctx, userId).UserPolicy(policy).Execute()
-
-	if err != nil || resp.StatusCode != 204 {
-		log.Error("Failed to update user policy", "error", err, "status", resp.StatusCode)
-		return err
-	}
-
-	return nil
-}
-
-// BulkUpdateUsersPolicies updates the policies of multiple users.
-// POST /Users/{userId}/Policy
-func (w *Wrapper) BulkUpdateUsersPolicies(users []jf.UserDto, policy jf.UserPolicy) error {
-	for _, user := range users {
-		if err := w.UpdateUserPolicy(*user.Id, policy); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return
 }

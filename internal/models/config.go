@@ -9,8 +9,9 @@ type Config struct {
 }
 
 type WebServer struct {
-	Addr string
-	TLS  WebServerTLS
+	BindAddr   string
+	PublicAddr string
+	TLS        WebServerTLS
 }
 
 type WebServerTLS struct {
@@ -20,7 +21,6 @@ type WebServerTLS struct {
 }
 
 type JellyfinConfig struct {
-	Enabled  bool
 	BaseURL  string
 	APIKey   string
 	Username string
@@ -28,7 +28,6 @@ type JellyfinConfig struct {
 }
 
 type JellyseerrConfig struct {
-	Enabled bool
 	BaseURL string
 	APIKey  string
 }

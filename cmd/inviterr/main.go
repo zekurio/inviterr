@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/sarulabs/di/v2"
 
+	"github.com/zekurio/inviterr/internal/inits"
+	"github.com/zekurio/inviterr/internal/models"
 	"github.com/zekurio/inviterr/internal/services/config"
 	"github.com/zekurio/inviterr/internal/services/jellyfin"
 	"github.com/zekurio/inviterr/internal/util/startuptime"
@@ -25,7 +27,6 @@ func main() {
 	diBuilder, _ := di.NewBuilder()
 	
 	logger := log.NewWithOptions(os.Stderr, log.Options{
-		ReportCaller: true,
 		ReportTimestamp: true,
 	})
 
@@ -41,15 +42,23 @@ func main() {
 	diBuilder.Add(di.Def{
 		Name: static.DiConfig,
 		Build: func(ctn di.Container) (interface{}, error) {
-			return config.NewPaerser(*flagConfigPath, "MF_"), nil
+			return config.Parse(*flagConfigPath, "INVITERR_", models.DefaultConfig)
 		},
 	})
 
 	// Initialize jellyfin client
 	diBuilder.Add(di.Def{
-		Name: static.DiJellyfinClient,
+		Name: static.DiJellyfin,
 		Build: func(ctn di.Container) (interface{}, error) {
 			return jellyfin.New(ctn), nil
+		},
+	})
+
+	// Initialize webserver
+	diBuilder.Add(di.Def{
+		Name: static.DiWebServer,
+		Build: func(ctn di.Container) (interface{}, error) {
+			return inits.InitWebserver(ctn)
 		},
 	})
 	
@@ -59,21 +68,10 @@ func main() {
 
 
 	// Setting log level from config
-	cfg := ctn.Get(static.DiConfig).(config.Provider)
-	if err := cfg.Parse(); err != nil {
-		log.Fatalf("Failed to parse config: %v", err)
-	}
+	ctn.Get(static.DiConfig)
 
-	jf := ctn.Get(static.DiJellyfinClient).(*jellyfin.Wrapper)
-
-	users, err := jf.ListUsers()
-	if err != nil {
-		log.Fatalf("Failed to get users: %v", err)
-	}
-
-	for _, user := range users {
-		log.Info("User", "user", *user.Name.Get())
-	}
+	// Start webserver
+	ctn.Get(static.DiWebServer)
 
 	// Block main go routine until one of the following
 
