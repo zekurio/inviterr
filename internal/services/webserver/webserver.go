@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/sarulabs/di/v2"
 	"github.com/zekurio/inviterr/internal/models"
+	v1 "github.com/zekurio/inviterr/internal/services/webserver/v1"
 	"github.com/zekurio/inviterr/internal/util/static"
 )
 
@@ -29,6 +30,7 @@ func New(container di.Container) (ws *WebServer, err error) {
 		ProxyHeader:           "X-Forwarded-For",
 	})
 
+	ws.registerRouter(new(v1.Router), []string{"/api/v1", "/api"})
 
 	return ws, nil
 }
@@ -45,7 +47,6 @@ func (ws *WebServer) errorHandler(ctx *fiber.Ctx, err error) error {
 			Code:  fErr.Code,
 		})
 	}
-
 
 	return ws.errorHandler(ctx,
 		fiber.NewError(fiber.StatusInternalServerError, err.Error()))

@@ -25,7 +25,7 @@ func main() {
 	flag.Parse()
 
 	diBuilder, _ := di.NewBuilder()
-	
+
 	logger := log.NewWithOptions(os.Stderr, log.Options{
 		ReportTimestamp: true,
 	})
@@ -61,11 +61,10 @@ func main() {
 			return inits.InitWebserver(ctn)
 		},
 	})
-	
+
 	ctn := diBuilder.Build()
 	// Tear down dependency instances
 	defer ctn.DeleteWithSubContainers()
-
 
 	// Setting log level from config
 	ctn.Get(static.DiConfig)
