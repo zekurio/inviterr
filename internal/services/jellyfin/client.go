@@ -31,7 +31,7 @@ func New(ctn di.Container) *Wrapper {
 	}
 }
 
-func (w *Wrapper) AuthenticateUser(username, password string) (user *jf.NullableUserDto, accessToken string, err error) {
+func (w *Wrapper) AuthenticateUserByName(username, password string) (user *jf.NullableUserDto, accessToken string, err error) {
 	res, resp, err := w.client.UserAPI.AuthenticateUserByName(w.ctx).AuthenticateUserByName(jf.AuthenticateUserByName{
 		Username: *jf.NewNullableString(&username),
 		Pw:       *jf.NewNullableString(&password),
