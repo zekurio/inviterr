@@ -7,4 +7,5 @@ var (
 	DiWebServer      = "webserver"
 	DiAuthMiddleware = "auth_middleware"
 	DiAuthHandler    = "auth_handler"
+	DiDatabase       = "database"
 )

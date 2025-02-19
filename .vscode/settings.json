@@ -1,0 +1,15 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "inviterr_dev",
+            "database": "inviterr",
+            "username": "inviterr",
+            "password": "inviterr",
+            "askForPassword": false
+        }
+    ]
+}

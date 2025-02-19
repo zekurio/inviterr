@@ -23,6 +23,7 @@ type Config struct {
 	WebServer  WebServer
 	Jellyfin   JellyfinConfig
 	Jellyseerr JellyseerrConfig
+	Database   DatabaseConfig
 }
 
 type WebServer struct {
@@ -46,4 +47,17 @@ type JellyfinConfig struct {
 type JellyseerrConfig struct {
 	BaseURL string
 	APIKey  string
+}
+
+type DatabaseConfig struct {
+	Type     string
+	Postgres PostgresConfig
+}
+
+type PostgresConfig struct {
+	Host     string
+	Port     int
+	Database string
+	Username string
+	Password string
 }

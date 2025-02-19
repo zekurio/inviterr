@@ -12,7 +12,8 @@
       "program": "${workspaceFolder}/cmd/inviterr/main.go",
       "args": ["-c", "${workspaceFolder}/config.yaml"],
       "env": {},
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "docker-compose-up"
     }
   ]
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/zekurio/inviterr/internal/util/static"
 )
 
-func InitWebserver(ctn di.Container) (interface{}, error) {
+func InitWebserver(ctn di.Container) (*webserver.WebServer, error) {
 	cfg := ctn.Get(static.DiConfig).(models.Config)
 	l := ctn.Get(static.DiLogger).(*log.Logger)
 

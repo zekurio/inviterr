@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:13-alpine
+    container_name: inviterr_postgres_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - inviterr_postgres_dev:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: inviterr
+      POSTGRES_PASSWORD: inviterr
+      POSTGRES_DB: inviterr
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inviterr"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  inviterr_postgres_dev:

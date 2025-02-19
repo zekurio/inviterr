@@ -46,6 +46,14 @@ func main() {
 		},
 	})
 
+	// Initialize database
+	diBuilder.Add(di.Def{
+		Name: static.DiDatabase,
+		Build: func(ctn di.Container) (interface{}, error) {
+			return inits.InitDatabase(ctn)
+		},
+	})
+
 	// Initialize jellyfin client
 	diBuilder.Add(di.Def{
 		Name: static.DiJellyfin,
@@ -68,6 +76,9 @@ func main() {
 
 	// Setting log level from config
 	ctn.Get(static.DiConfig)
+
+	// Start database
+	ctn.Get(static.DiDatabase)
 
 	// Start webserver
 	ctn.Get(static.DiWebServer)
