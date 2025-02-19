@@ -4,7 +4,8 @@ import "github.com/zekurio/inviterr/pkg/random"
 
 var DefaultConfig = Config{
 	WebServer: WebServer{
-		BindAddr:   "0.0.0.0:8080",
+		BindAddr:   "127.0.0.1",
+		Port:       1765,
 		PublicAddr: "http://invite.me",
 		Secret:     random.MustGetRandBase64Str(64),
 		TLS: WebServerTLS{
@@ -28,6 +29,7 @@ type Config struct {
 
 type WebServer struct {
 	BindAddr   string
+	Port       int
 	PublicAddr string
 	Secret     string
 	TLS        WebServerTLS

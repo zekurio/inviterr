@@ -3,6 +3,8 @@ package webserver
 import (
 	"errors"
 
+	"strconv"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/sarulabs/di/v2"
 	"github.com/zekurio/inviterr/internal/models"
@@ -60,13 +62,13 @@ func (ws *WebServer) registerRouter(router Router, routes []string, middlewares 
 
 func (ws *WebServer) ListenAndServeBlocking() error {
 	tls := ws.cfg.WebServer.TLS
+	addr := ws.cfg.WebServer.BindAddr + ":" + strconv.Itoa(ws.cfg.WebServer.Port)
 
 	if tls.Enabled {
 		if tls.Cert == "" || tls.Key == "" {
 			return errors.New("cert file and key file must be specified")
 		}
-		return ws.app.ListenTLS(ws.cfg.WebServer.BindAddr, tls.Cert, tls.Key)
+		return ws.app.ListenTLS(addr, tls.Cert, tls.Key)
 	}
-
-	return ws.app.Listen(ws.cfg.WebServer.BindAddr)
+	return ws.app.Listen(addr)
 }

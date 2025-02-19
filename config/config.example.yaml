@@ -1,5 +1,6 @@
 webserver:
-  bindaddr: "127.0.0.1:8080"
+  bindaddr: "127.0.0.1"
+  port: 1765
   publicaddr: "https://inviterr.example.xyz"
   tls:
     enabled: false
