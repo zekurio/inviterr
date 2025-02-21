@@ -10,7 +10,7 @@ import (
 	"github.com/zekurio/inviterr/internal/util/static"
 )
 
-func InitDatabase(ctn di.Container) (*database.Database, error) {
+func InitDatabase(ctn di.Container) (database.Database, error) {
 	var (
 		db  database.Database
 		err error
@@ -25,5 +25,5 @@ func InitDatabase(ctn di.Container) (*database.Database, error) {
 		err = database.ErrUnsupportedProviderType
 	}
 
-	return &db, err
+	return db, err
 }

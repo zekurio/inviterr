@@ -3,6 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -61,41 +62,34 @@ func (t *Postgres) wrapErr(err error) error {
 	return err
 }
 
-// CreateInvite creates a new invite and its associated policy in a transaction.
-func (p *Postgres) CreateInvite(invite models.Invite) error {
+// AddUpdateInvite inserts or updates an invite and its associated policy in a transaction.
+func (p *Postgres) AddUpdateInvite(invite models.Invite) error {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	// Insert policy and retrieve its generated id.
+	// Retrieve policy id (assuming the policy already exists).
 	var policyID int
-	err = tx.QueryRow(`
-        INSERT INTO policies 
-            (policy_name, is_administrator, is_disabled, enable_all_folders, enabled_folders, max_active_sessions, remote_client_bitrate_limit)
-        VALUES 
-            ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id
-    `, invite.Policy.PolicyName,
-		invite.Policy.IsAdministrator,
-		invite.Policy.IsDisabled,
-		invite.Policy.EnableAllFolders,
-		invite.Policy.EnabledFolders,
-		invite.Policy.MaxActiveSessions,
-		invite.Policy.RemoteClientBitrateLimit,
-	).Scan(&policyID)
+	err = tx.QueryRow(`SELECT id FROM policies WHERE policy_name=$1 RETURNING id`, invite.Policy.PolicyName).Scan(&policyID)
 	if err != nil {
 		return err
 	}
 
-	// Insert invite.
+	// Insert or update invite with additional fields.
 	_, err = tx.Exec(`
         INSERT INTO invites 
-            (id, referrer, policy_id)
+            (id, policy_id, created_at, expires_at, use_limit, times_used)
         VALUES 
-            ($1, $2, $3)
-    `, invite.ID, invite.Referrer, policyID)
+            ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (id) DO UPDATE SET 
+            policy_id = EXCLUDED.policy_id,
+            created_at = EXCLUDED.created_at,
+            expires_at = EXCLUDED.expires_at,
+            use_limit = EXCLUDED.use_limit,
+            times_used = EXCLUDED.times_used
+    `, invite.ID, policyID, invite.CreatedAt, invite.ExpiresAt, invite.UseLimit, invite.TimesUsed)
 	if err != nil {
 		return err
 	}
@@ -103,16 +97,35 @@ func (p *Postgres) CreateInvite(invite models.Invite) error {
 	return tx.Commit()
 }
 
+// GetAllInvites retrieves all invites using helper functions.
+func (p *Postgres) GetAllInvites() ([]models.Invite, error) {
+	rows, err := p.db.Query(`SELECT id FROM invites`)
+	if err != nil {
+		return nil, err
+	}
+
+	var invites []models.Invite
+	for rows.Next() {
+		var id string
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		invite, err := p.GetInviteByID(id)
+		if err != nil {
+			return nil, err
+		}
+
+		invites = append(invites, invite)
+	}
+
+	return invites, nil
+}
+
 // GetInviteByID retrieves an invite by its ID using helper functions.
 func (p *Postgres) GetInviteByID(id string) (models.Invite, error) {
 	var invite models.Invite
 	invite.ID = id
-
-	referrer, err := pg_getValue[string](p, "invites", "referrer", "id", id)
-	if err != nil {
-		return invite, err
-	}
-	invite.Referrer = referrer
 
 	policyID, err := pg_getValue[int](p, "invites", "policy_id", "id", id)
 	if err != nil {
@@ -131,19 +144,19 @@ func (p *Postgres) GetInviteByID(id string) (models.Invite, error) {
 	if err != nil {
 		return invite, err
 	}
-	policy.IsAdministrator = &admin
+	policy.IsAdministrator = admin
 
 	disabled, err := pg_getValue[bool](p, "policies", "is_disabled", "id", policyID)
 	if err != nil {
 		return invite, err
 	}
-	policy.IsDisabled = &disabled
+	policy.IsDisabled = disabled
 
 	enableAll, err := pg_getValue[bool](p, "policies", "enable_all_folders", "id", policyID)
 	if err != nil {
 		return invite, err
 	}
-	policy.EnableAllFolders = &enableAll
+	policy.EnableAllFolders = enableAll
 
 	enabledFolders, err := pg_getValue[[]string](p, "policies", "enabled_folders", "id", policyID)
 	if err != nil {
@@ -155,80 +168,41 @@ func (p *Postgres) GetInviteByID(id string) (models.Invite, error) {
 	if err != nil {
 		return invite, err
 	}
-	policy.MaxActiveSessions = &maxSessions
+	policy.MaxActiveSessions = maxSessions
 
 	bitrate, err := pg_getValue[int32](p, "policies", "remote_client_bitrate_limit", "id", policyID)
 	if err != nil {
 		return invite, err
 	}
-	policy.RemoteClientBitrateLimit = &bitrate
+	policy.RemoteClientBitrateLimit = bitrate
 
 	invite.Policy = policy
-	return invite, nil
-}
 
-// GetInviteByReferrer retrieves an invite using its referrer.
-func (p *Postgres) GetInviteByReferrer(referrer string) (models.Invite, error) {
-	var invite models.Invite
-
-	// Retrieve invite id based on referrer.
-	inviteID, err := pg_getValue[string](p, "invites", "id", "referrer", referrer)
+	// Retrieve new invite fields.
+	createdAt, err := pg_getValue[time.Time](p, "invites", "created_at", "id", id)
 	if err != nil {
 		return invite, err
 	}
-	invite.ID = inviteID
-	invite.Referrer = referrer
+	invite.CreatedAt = createdAt
 
-	policyID, err := pg_getValue[int](p, "invites", "policy_id", "id", inviteID)
+	expiresAt, err := pg_getValue[time.Time](p, "invites", "expires_at", "id", id)
 	if err != nil {
 		return invite, err
 	}
+	invite.ExpiresAt = expiresAt
 
-	var policy models.DehydratedPolicy
-
-	name, err := pg_getValue[string](p, "policies", "policy_name", "id", policyID)
+	useLimit, err := pg_getValue[int](p, "invites", "use_limit", "id", id)
 	if err != nil {
 		return invite, err
 	}
-	policy.PolicyName = name
+	invite.UseLimit = useLimit
 
-	admin, err := pg_getValue[bool](p, "policies", "is_administrator", "id", policyID)
+	timesUsed, err := pg_getValue[int](p, "invites", "times_used", "id", id)
 	if err != nil {
 		return invite, err
 	}
-	policy.IsAdministrator = &admin
+	invite.TimesUsed = timesUsed
 
-	disabled, err := pg_getValue[bool](p, "policies", "is_disabled", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.IsDisabled = &disabled
-
-	enableAll, err := pg_getValue[bool](p, "policies", "enable_all_folders", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.EnableAllFolders = &enableAll
-
-	enabledFolders, err := pg_getValue[[]string](p, "policies", "enabled_folders", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.EnabledFolders = enabledFolders
-
-	maxSessions, err := pg_getValue[int32](p, "policies", "max_active_sessions", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.MaxActiveSessions = &maxSessions
-
-	bitrate, err := pg_getValue[int32](p, "policies", "remote_client_bitrate_limit", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.RemoteClientBitrateLimit = &bitrate
-
-	invite.Policy = policy
 	return invite, nil
 }
 

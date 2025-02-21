@@ -12,6 +12,7 @@ import (
 	"github.com/zekurio/inviterr/internal/inits"
 	"github.com/zekurio/inviterr/internal/models"
 	"github.com/zekurio/inviterr/internal/services/config"
+	"github.com/zekurio/inviterr/internal/services/invites"
 	"github.com/zekurio/inviterr/internal/services/jellyfin"
 	"github.com/zekurio/inviterr/internal/util/startuptime"
 	"github.com/zekurio/inviterr/internal/util/static"
@@ -59,6 +60,14 @@ func main() {
 		Name: static.DiJellyfin,
 		Build: func(ctn di.Container) (interface{}, error) {
 			return jellyfin.New(ctn), nil
+		},
+	})
+
+	// Initialize invites service
+	diBuilder.Add(di.Def{
+		Name: static.DiInvites,
+		Build: func(ctn di.Container) (interface{}, error) {
+			return invites.New(ctn)
 		},
 	})
 

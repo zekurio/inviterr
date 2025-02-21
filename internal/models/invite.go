@@ -1,16 +1,21 @@
 package models
 
+import "time"
+
 // Invite is an invite to the jellyfin and jellyseerr instance,
 // it contains the ID of the invite, a jellyfin
 type Invite struct {
 	// ID is the ID of the invite, which is also part of the URL
 	ID string
 
-	// Referrer is the userId of the user who created the invite
-	Referrer string
-
 	// Policy is the policy used to create accounts with
 	Policy DehydratedPolicy
+
+	// New fields
+	CreatedAt time.Time
+	ExpiresAt time.Time
+	UseLimit  int
+	TimesUsed int
 }
 
 // DehydratedPolicy is a slimmed down version of the policy,
@@ -18,10 +23,10 @@ type Invite struct {
 // bitrate limit
 type DehydratedPolicy struct {
 	PolicyName               string
-	IsAdministrator          *bool
-	IsDisabled               *bool
-	EnableAllFolders         *bool
+	IsAdministrator          bool
+	IsDisabled               bool
+	EnableAllFolders         bool
 	EnabledFolders           []string
-	MaxActiveSessions        *int32
-	RemoteClientBitrateLimit *int32
+	MaxActiveSessions        int32
+	RemoteClientBitrateLimit int32
 }

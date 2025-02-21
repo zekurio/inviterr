@@ -15,8 +15,8 @@ type Database interface {
 	Close() error
 
 	// Invites
-	CreateInvite(invite models.Invite) error
+	AddUpdateInvite(invite models.Invite) error
+	GetAllInvites() ([]models.Invite, error)
 	GetInviteByID(id string) (models.Invite, error)
-	GetInviteByReferrer(referrer string) (models.Invite, error)
 	DeleteInvite(id string) error
 }

@@ -8,4 +8,5 @@ var (
 	DiAuthMiddleware = "auth_middleware"
 	DiAuthHandler    = "auth_handler"
 	DiDatabase       = "database"
+	DiInvites        = "invites"
 )

@@ -3,9 +3,7 @@ package v1
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/sarulabs/di/v2"
-	"github.com/zekurio/inviterr/internal/services/webserver/auth"
 	"github.com/zekurio/inviterr/internal/services/webserver/v1/controllers"
-	"github.com/zekurio/inviterr/internal/util/static"
 )
 
 type Router struct {
@@ -17,9 +15,11 @@ func (r *Router) SetContainer(container di.Container) {
 }
 
 func (r *Router) Route(router fiber.Router) {
-	authMw := r.container.Get(static.DiAuthMiddleware).(auth.Middleware)
+	// authMw := r.container.Get(static.DiAuthMiddleware).(auth.Middleware)
 
-	new(controllers.AuthController).Setup(r.container, router.Group("/auth"))
+	// new(controllers.AuthController).Setup(r.container, router.Group("/auth"))
 
-	router.Use(authMw.Handle)
+	// router.Use(authMw.Handle)
+
+	new(controllers.InviteController).Setup(r.container, router.Group("/invite"))
 }
