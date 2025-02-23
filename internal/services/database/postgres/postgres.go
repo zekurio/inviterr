@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 
 	"github.com/charmbracelet/log"
 	"github.com/pressly/goose/v3"
@@ -61,6 +61,13 @@ func (t *Postgres) wrapErr(err error) error {
 	}
 	return err
 }
+
+// Close closes the database connection.
+func (p *Postgres) Close() error {
+	return p.db.Close()
+}
+
+// Invites
 
 // AddUpdateInvite inserts or updates an invite and its associated policy in a transaction.
 func (p *Postgres) AddUpdateInvite(invite models.Invite) error {
@@ -238,9 +245,111 @@ func (p *Postgres) DeleteInvite(id string) error {
 	return nil
 }
 
-// Close closes the database connection.
-func (p *Postgres) Close() error {
-	return p.db.Close()
+// Policies
+
+// AddUpdatePolicy inserts or updates a policy.
+func (p *Postgres) AddUpdatePolicy(policy models.DehydratedPolicy) error {
+	tx, err := p.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Insert or update policy.
+	_, err = tx.Exec(`
+		INSERT INTO policies
+			(policy_name, is_administrator, is_disabled, enable_all_folders, enabled_folders, max_active_sessions, remote_client_bitrate_limit)
+		VALUES
+			($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (policy_name) DO UPDATE SET
+			is_administrator = EXCLUDED.is_administrator,
+			is_disabled = EXCLUDED.is_disabled,
+			enable_all_folders = EXCLUDED.enable_all_folders,
+			enabled_folders = EXCLUDED.enabled_folders,
+			max_active_sessions = EXCLUDED.max_active_sessions,
+			remote_client_bitrate_limit = EXCLUDED.remote_client_bitrate_limit
+	`, policy.PolicyName, policy.IsAdministrator, policy.IsDisabled, policy.EnableAllFolders, pq.Array(policy.EnabledFolders), policy.MaxActiveSessions, policy.RemoteClientBitrateLimit)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// GetAllPolicies retrieves all policies.
+func (p *Postgres) GetAllPolicies() ([]models.DehydratedPolicy, error) {
+	rows, err := p.db.Query(`SELECT policy_name FROM policies`)
+	if err != nil {
+		return nil, err
+	}
+
+	var policies []models.DehydratedPolicy
+	for rows.Next() {
+		var name string
+		err = rows.Scan(&name)
+		if err != nil {
+			return nil, err
+		}
+		policy, err := p.GetPolicyByName(name)
+		if err != nil {
+			return nil, err
+		}
+
+		policies = append(policies, policy)
+	}
+
+	return policies, nil
+}
+
+// GetPolicyByName retrieves a policy by its name.
+func (p *Postgres) GetPolicyByName(name string) (models.DehydratedPolicy, error) {
+	var policy models.DehydratedPolicy
+	policy.PolicyName = name
+
+	admin, err := pg_getValue[bool](p, "policies", "is_administrator", "policy_name", name)
+	if err != nil {
+		return policy, err
+	}
+	policy.IsAdministrator = admin
+
+	disabled, err := pg_getValue[bool](p, "policies", "is_disabled", "policy_name", name)
+	if err != nil {
+		return policy, err
+	}
+	policy.IsDisabled = disabled
+
+	enableAll, err := pg_getValue[bool](p, "policies", "enable_all_folders", "policy_name", name)
+	if err != nil {
+		return policy, err
+	}
+	policy.EnableAllFolders = enableAll
+
+	enabledFolders, err := pg_getValue[[]string](p, "policies", "enabled_folders", "policy_name", name)
+	if err != nil {
+		return policy, err
+	}
+	policy.EnabledFolders = enabledFolders
+
+	maxSessions, err := pg_getValue[int32](p, "policies", "max_active_sessions", "policy_name", name)
+	if err != nil {
+		return policy, err
+	}
+	policy.MaxActiveSessions = maxSessions
+
+	bitrate, err := pg_getValue[int32](p, "policies", "remote_client_bitrate_limit", "policy_name", name)
+	if err != nil {
+		return policy, err
+	}
+	policy.RemoteClientBitrateLimit = bitrate
+
+	return policy, nil
+}
+
+// DeletePolicyByName deletes a policy by its name.
+func (p *Postgres) DeletePolicyByName(name string) error {
+	_, err := p.db.Exec(`DELETE FROM policies WHERE policy_name =
+	$1`, name)
+	return err
 }
 
 func pg_getValue[TVal, TWv any](t *Postgres, table, vk, wk string, wv TWv) (TVal, error) {

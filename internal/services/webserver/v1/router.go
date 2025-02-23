@@ -7,19 +7,15 @@ import (
 )
 
 type Router struct {
-	container di.Container
+	ctn di.Container
 }
 
-func (r *Router) SetContainer(container di.Container) {
-	r.container = container
+func (r *Router) SetContainer(ctn di.Container) {
+	r.ctn = ctn
 }
 
 func (r *Router) Route(router fiber.Router) {
-	// authMw := r.container.Get(static.DiAuthMiddleware).(auth.Middleware)
+	new(controllers.InviteController).Setup(r.ctn, router.Group("/invite"))
 
-	// new(controllers.AuthController).Setup(r.container, router.Group("/auth"))
-
-	// router.Use(authMw.Handle)
-
-	new(controllers.InviteController).Setup(r.container, router.Group("/invite"))
+	new(controllers.PolicyController).Setup(r.ctn, router.Group("/policies"))
 }

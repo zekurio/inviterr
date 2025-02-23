@@ -1,7 +1,7 @@
 -- +goose Up
 CREATE TABLE policies (
     id SERIAL PRIMARY KEY,
-    policy_name TEXT NOT NULL,
+    policy_name TEXT NOT NULL UNIQUE,
     is_administrator BOOLEAN,
     is_disabled BOOLEAN,
     enable_all_folders BOOLEAN,

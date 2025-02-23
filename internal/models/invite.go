@@ -22,11 +22,11 @@ type Invite struct {
 // we only want to set the admin status, disabled status, library access, number of sessions and remote streaming
 // bitrate limit
 type DehydratedPolicy struct {
-	PolicyName               string
-	IsAdministrator          bool
-	IsDisabled               bool
-	EnableAllFolders         bool
-	EnabledFolders           []string
-	MaxActiveSessions        int32
-	RemoteClientBitrateLimit int32
+	PolicyName               string   `json:"policy_name"`
+	IsAdministrator          bool     `json:"is_administrator"`
+	IsDisabled               bool     `json:"is_disabled"`
+	EnableAllFolders         bool     `json:"enable_all_folders"`
+	EnabledFolders           []string `json:"enabled_folders"`
+	MaxActiveSessions        int32    `json:"max_active_sessions"`
+	RemoteClientBitrateLimit int32    `json:"remote_client_bitrate_limit"`
 }

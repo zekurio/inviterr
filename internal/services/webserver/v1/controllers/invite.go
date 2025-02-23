@@ -17,6 +17,9 @@ type InviteController struct {
 func (ic *InviteController) Setup(ctn di.Container, r fiber.Router) {
 	ic.invites = ctn.Get(static.DiInvites).(*invites.InviteService)
 	ic.jf = ctn.Get(static.DiJellyfin).(*jellyfin.Wrapper)
+
+	r.Post("/", ic.CreateInvite)
+	r.Get("/:id", ic.ProcessInvite)
 }
 
 // CreateInvite handles POST /invite to create a new invite.

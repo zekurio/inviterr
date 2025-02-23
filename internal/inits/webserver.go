@@ -1,8 +1,6 @@
 package inits
 
 import (
-	"strconv"
-
 	"github.com/charmbracelet/log"
 	"github.com/sarulabs/di/v2"
 	"github.com/zekurio/inviterr/internal/models"
@@ -16,8 +14,7 @@ func InitWebserver(ctn di.Container) (*webserver.WebServer, error) {
 
 	l.SetPrefix("webserver")
 
-	addr := cfg.WebServer.BindAddr + ":" + strconv.Itoa(cfg.WebServer.Port)
-	l.Infof("Starting webserver on %s", addr)
+	l.Infof("Starting webserver on %s", cfg.WebServer.BindAddr)
 
 	ws, err := webserver.New(ctn)
 	if err != nil {
@@ -30,7 +27,7 @@ func InitWebserver(ctn di.Container) (*webserver.WebServer, error) {
 		}
 	}()
 
-	log.Info("Webserver running", "addr", addr,
+	log.Info("Webserver running", "addr", cfg.WebServer.BindAddr,
 		"public_addr", cfg.WebServer.PublicAddr)
 
 	return ws, nil

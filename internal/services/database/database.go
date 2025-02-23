@@ -19,4 +19,10 @@ type Database interface {
 	GetAllInvites() ([]models.Invite, error)
 	GetInviteByID(id string) (models.Invite, error)
 	DeleteInvite(id string) error
+
+	// Policies
+	AddUpdatePolicy(policy models.DehydratedPolicy) error
+	GetAllPolicies() ([]models.DehydratedPolicy, error)
+	GetPolicyByName(name string) (models.DehydratedPolicy, error)
+	DeletePolicyByName(name string) error
 }
