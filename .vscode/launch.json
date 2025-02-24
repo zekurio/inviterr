@@ -10,7 +10,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/inviterr/main.go",
-      "args": ["-c", "${workspaceFolder}/config.yaml"],
+      "args": ["-c", "${workspaceFolder}/config/config.yaml"],
       "env": {},
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "docker-compose-up"

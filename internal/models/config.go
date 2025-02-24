@@ -6,7 +6,7 @@ var DefaultConfig = Config{
 	WebServer: WebServer{
 		BindAddr:   "localhost:1765",
 		PublicAddr: "http://invite.me",
-		Secret:     random.MustGetRandBase64Str(64),
+		Secret:     random.MustGetRandBase64Str(32),
 		TLS: WebServerTLS{
 			Enabled: false,
 			Cert:    "",

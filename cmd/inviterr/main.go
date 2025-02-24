@@ -14,6 +14,7 @@ import (
 	"github.com/zekurio/inviterr/internal/services/config"
 	"github.com/zekurio/inviterr/internal/services/invites"
 	"github.com/zekurio/inviterr/internal/services/jellyfin"
+	"github.com/zekurio/inviterr/internal/services/webserver/auth"
 	"github.com/zekurio/inviterr/internal/util/startuptime"
 	"github.com/zekurio/inviterr/internal/util/static"
 )
@@ -68,6 +69,20 @@ func main() {
 		Name: static.DiInvites,
 		Build: func(ctn di.Container) (interface{}, error) {
 			return invites.New(ctn)
+		},
+	})
+
+	diBuilder.Add(di.Def{
+		Name: static.DiAuthMiddleware,
+		Build: func(ctn di.Container) (interface{}, error) {
+			return auth.NewAuthMiddleware(ctn), nil
+		},
+	})
+
+	diBuilder.Add(di.Def{
+		Name: static.DiAuthHandler,
+		Build: func(ctn di.Container) (interface{}, error) {
+			return auth.NewAuthHandler(ctn)
 		},
 	})
 

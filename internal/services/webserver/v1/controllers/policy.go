@@ -16,10 +16,10 @@ func (pc *PolicyController) Setup(ctn di.Container, r fiber.Router) {
 	db := ctn.Get(static.DiDatabase).(database.Database)
 	pc.db = db
 
-	r.Post("/", pc.CreatePolicy)
-	r.Put("/:id", pc.UpdatePolicy)
-	r.Get("/", pc.GetAllPolicies)
+	r.Post("/create", pc.CreatePolicy)
+	r.Get("/all", pc.GetAllPolicies)
 	r.Get("/:id", pc.GetPolicy)
+	r.Put("/:id", pc.UpdatePolicy)
 	r.Delete("/:id", pc.DeletePolicy)
 }
 
@@ -43,32 +43,6 @@ func (pc *PolicyController) CreatePolicy(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(policy)
-}
-
-// @Summary Update Policy
-// @Description Update an existing policy.
-// @Tags Policy
-// @Accept json
-// @Produce json
-// @Param id path string true "Policy ID"
-// @Param body body models.DehydratedPolicy true "Updated Policy data"
-// @Success 200 {object} models.DehydratedPolicy
-// @Failure 400 {object} models.Error
-// @Failure 500 {object} models.Error
-func (pc *PolicyController) UpdatePolicy(c *fiber.Ctx) error {
-	policyName := c.Params("id")
-	var policy models.DehydratedPolicy
-	if err := c.BodyParser(&policy); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.Error{Error: "invalid request", Code: fiber.StatusBadRequest})
-	}
-
-	policy.PolicyName = policyName
-
-	if err := pc.db.AddUpdatePolicy(policy); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(models.Error{Error: err.Error(), Code: fiber.StatusInternalServerError})
-	}
-
-	return c.Status(fiber.StatusOK).JSON(policy)
 }
 
 // @Summary Get All Policies
@@ -100,6 +74,32 @@ func (pc *PolicyController) GetPolicy(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
 	}
+	return c.Status(fiber.StatusOK).JSON(policy)
+}
+
+// @Summary Update Policy
+// @Description Update an existing policy.
+// @Tags Policy
+// @Accept json
+// @Produce json
+// @Param id path string true "Policy ID"
+// @Param body body models.DehydratedPolicy true "Updated Policy data"
+// @Success 200 {object} models.DehydratedPolicy
+// @Failure 400 {object} models.Error
+// @Failure 500 {object} models.Error
+func (pc *PolicyController) UpdatePolicy(c *fiber.Ctx) error {
+	policyName := c.Params("id")
+	var policy models.DehydratedPolicy
+	if err := c.BodyParser(&policy); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(models.Error{Error: "invalid request", Code: fiber.StatusBadRequest})
+	}
+
+	policy.PolicyName = policyName
+
+	if err := pc.db.AddUpdatePolicy(policy); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(models.Error{Error: err.Error(), Code: fiber.StatusInternalServerError})
+	}
+
 	return c.Status(fiber.StatusOK).JSON(policy)
 }
 
