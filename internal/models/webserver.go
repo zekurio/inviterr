@@ -17,3 +17,13 @@ type InviteRequest struct {
 	ExpiresAt  time.Time `json:"expires_at"`
 	UseLimit   int       `json:"use_limit"`
 }
+
+type RegisterRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type RegisterResponse struct {
+	Username string `json:"username"`
+	UserID   string `json:"user_id"`
+}

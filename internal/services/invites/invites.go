@@ -54,26 +54,29 @@ func (i *InviteService) CheckInvite(id string) (bool, error) {
 		return false, ErrInviteLimitReached
 	}
 
-	// increment use count if applicable
-	if invite.UseLimit != 0 {
-		invite.TimesUsed++
-	}
-	i.invites[id] = invite
-
-	if err := i.db.AddUpdateInvite(invite); err != nil {
-		return false, err
-	}
-	// remove the invite if the use limit is reached after increment
-	if invite.UseLimit != 0 && invite.TimesUsed >= invite.UseLimit {
-		if err := i.db.DeleteInvite(id); err != nil {
-			// if we can't delete the invite, we should return an error
-			// but the user can still go on
-			return true, err
-		}
-		delete(i.invites, id)
-	}
-
 	return true, nil
+}
+
+// ConsumeInvite increments the usage counter of an invite and deletes it if the limit is reached.
+func (i *InviteService) ConsumeInvite(id string) error {
+	invite, ok := i.invites[id]
+	if !ok {
+		return ErrInvalidInvite
+	}
+
+	invite.TimesUsed++
+	if invite.UseLimit != 0 && invite.TimesUsed >= invite.UseLimit {
+		delete(i.invites, id)
+		if err := i.db.DeleteInvite(id); err != nil {
+			return err
+		}
+	} else {
+		if err := i.db.AddUpdateInvite(invite); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // CreateInvite creates a new invite and stores it in the database.
