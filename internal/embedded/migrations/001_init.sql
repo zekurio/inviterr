@@ -5,7 +5,7 @@ CREATE TABLE invites (
     created_at TIMESTAMP NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     use_limit INTEGER,
-    times_used INTEGER,
+    times_used INTEGER
 );
 -- +goose Down
 DROP TABLE IF EXISTS invites;

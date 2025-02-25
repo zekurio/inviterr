@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	_ "github.com/lib/pq"
+
 	"github.com/charmbracelet/log"
 	"github.com/pressly/goose/v3"
 	"github.com/sarulabs/di/v2"
