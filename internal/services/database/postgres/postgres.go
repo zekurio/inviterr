@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
-
 	"github.com/charmbracelet/log"
 	"github.com/pressly/goose/v3"
 	"github.com/sarulabs/di/v2"
@@ -69,7 +67,7 @@ func (p *Postgres) Close() error {
 
 // Invites
 
-// AddUpdateInvite inserts or updates an invite and its associated policy in a transaction.
+// AddUpdateInvite inserts or updates an invite
 func (p *Postgres) AddUpdateInvite(invite models.Invite) error {
 	tx, err := p.db.Begin()
 	if err != nil {
@@ -77,26 +75,19 @@ func (p *Postgres) AddUpdateInvite(invite models.Invite) error {
 	}
 	defer tx.Rollback()
 
-	// Retrieve policy id (assuming the policy already exists).
-	var policyID int
-	err = tx.QueryRow(`SELECT id FROM policies WHERE policy_name=$1 RETURNING id`, invite.Policy.PolicyName).Scan(&policyID)
-	if err != nil {
-		return err
-	}
-
 	// Insert or update invite with additional fields.
 	_, err = tx.Exec(`
         INSERT INTO invites 
-            (id, policy_id, created_at, expires_at, use_limit, times_used)
+            (id, template_user_id, created_at, expires_at, use_limit, times_used)
         VALUES 
             ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (id) DO UPDATE SET 
-            policy_id = EXCLUDED.policy_id,
+            template_user_id = EXCLUDED.template_user_id,
             created_at = EXCLUDED.created_at,
             expires_at = EXCLUDED.expires_at,
             use_limit = EXCLUDED.use_limit,
             times_used = EXCLUDED.times_used
-    `, invite.ID, policyID, invite.CreatedAt, invite.ExpiresAt, invite.UseLimit, invite.TimesUsed)
+    `, invite.ID, invite.TemplateUserID, invite.CreatedAt, invite.ExpiresAt, invite.UseLimit, invite.TimesUsed)
 	if err != nil {
 		return err
 	}
@@ -134,56 +125,12 @@ func (p *Postgres) GetInviteByID(id string) (models.Invite, error) {
 	var invite models.Invite
 	invite.ID = id
 
-	policyID, err := pg_getValue[int](p, "invites", "policy_id", "id", id)
+	// Retrieve TemplateUserID.
+	templateUserID, err := pg_getValue[string](p, "invites", "template_user_id", "id", id)
 	if err != nil {
 		return invite, err
 	}
-
-	var policy models.DehydratedPolicy
-
-	name, err := pg_getValue[string](p, "policies", "policy_name", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.PolicyName = name
-
-	admin, err := pg_getValue[bool](p, "policies", "is_administrator", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.IsAdministrator = admin
-
-	disabled, err := pg_getValue[bool](p, "policies", "is_disabled", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.IsDisabled = disabled
-
-	enableAll, err := pg_getValue[bool](p, "policies", "enable_all_folders", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.EnableAllFolders = enableAll
-
-	enabledFolders, err := pg_getValue[[]string](p, "policies", "enabled_folders", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.EnabledFolders = enabledFolders
-
-	maxSessions, err := pg_getValue[int32](p, "policies", "max_active_sessions", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.MaxActiveSessions = maxSessions
-
-	bitrate, err := pg_getValue[int32](p, "policies", "remote_client_bitrate_limit", "id", policyID)
-	if err != nil {
-		return invite, err
-	}
-	policy.RemoteClientBitrateLimit = bitrate
-
-	invite.Policy = policy
+	invite.TemplateUserID = templateUserID
 
 	// Retrieve new invite fields.
 	createdAt, err := pg_getValue[time.Time](p, "invites", "created_at", "id", id)
@@ -213,143 +160,9 @@ func (p *Postgres) GetInviteByID(id string) (models.Invite, error) {
 	return invite, nil
 }
 
-// DeleteInvite deletes an invite and, if no other invites reference the associated policy, deletes that policy.
+// DeleteInvite deletes an invite
 func (p *Postgres) DeleteInvite(id string) error {
-	// Retrieve policy id using helper.
-	policyID, err := pg_getValue[int](p, "invites", "policy_id", "id", id)
-	if err != nil {
-		return err
-	}
-
-	// Delete the invite using helper.
-	err = pg_delete(p, "invites", "id", id)
-	if err != nil {
-		return err
-	}
-
-	// Check whether any invites still reference the policy.
-	var count int
-	row := p.db.QueryRow(`SELECT COUNT(*) FROM invites WHERE policy_id = $1`, policyID)
-	err = row.Scan(&count)
-	if err != nil {
-		return err
-	}
-
-	if count == 0 {
-		err = pg_delete(p, "policies", "id", policyID)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Policies
-
-// AddUpdatePolicy inserts or updates a policy.
-func (p *Postgres) AddUpdatePolicy(policy models.DehydratedPolicy) error {
-	tx, err := p.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	// Insert or update policy.
-	_, err = tx.Exec(`
-		INSERT INTO policies
-			(policy_name, is_administrator, is_disabled, enable_all_folders, enabled_folders, max_active_sessions, remote_client_bitrate_limit)
-		VALUES
-			($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (policy_name) DO UPDATE SET
-			is_administrator = EXCLUDED.is_administrator,
-			is_disabled = EXCLUDED.is_disabled,
-			enable_all_folders = EXCLUDED.enable_all_folders,
-			enabled_folders = EXCLUDED.enabled_folders,
-			max_active_sessions = EXCLUDED.max_active_sessions,
-			remote_client_bitrate_limit = EXCLUDED.remote_client_bitrate_limit
-	`, policy.PolicyName, policy.IsAdministrator, policy.IsDisabled, policy.EnableAllFolders, pq.Array(policy.EnabledFolders), policy.MaxActiveSessions, policy.RemoteClientBitrateLimit)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
-// GetAllPolicies retrieves all policies.
-func (p *Postgres) GetAllPolicies() ([]models.DehydratedPolicy, error) {
-	rows, err := p.db.Query(`SELECT policy_name FROM policies`)
-	if err != nil {
-		return nil, err
-	}
-
-	var policies []models.DehydratedPolicy
-	for rows.Next() {
-		var name string
-		err = rows.Scan(&name)
-		if err != nil {
-			return nil, err
-		}
-		policy, err := p.GetPolicyByName(name)
-		if err != nil {
-			return nil, err
-		}
-
-		policies = append(policies, policy)
-	}
-
-	return policies, nil
-}
-
-// GetPolicyByName retrieves a policy by its name.
-func (p *Postgres) GetPolicyByName(name string) (models.DehydratedPolicy, error) {
-	var policy models.DehydratedPolicy
-	policy.PolicyName = name
-
-	admin, err := pg_getValue[bool](p, "policies", "is_administrator", "policy_name", name)
-	if err != nil {
-		return policy, err
-	}
-	policy.IsAdministrator = admin
-
-	disabled, err := pg_getValue[bool](p, "policies", "is_disabled", "policy_name", name)
-	if err != nil {
-		return policy, err
-	}
-	policy.IsDisabled = disabled
-
-	enableAll, err := pg_getValue[bool](p, "policies", "enable_all_folders", "policy_name", name)
-	if err != nil {
-		return policy, err
-	}
-	policy.EnableAllFolders = enableAll
-
-	enabledFolders, err := pg_getValue[[]string](p, "policies", "enabled_folders", "policy_name", name)
-	if err != nil {
-		return policy, err
-	}
-	policy.EnabledFolders = enabledFolders
-
-	maxSessions, err := pg_getValue[int32](p, "policies", "max_active_sessions", "policy_name", name)
-	if err != nil {
-		return policy, err
-	}
-	policy.MaxActiveSessions = maxSessions
-
-	bitrate, err := pg_getValue[int32](p, "policies", "remote_client_bitrate_limit", "policy_name", name)
-	if err != nil {
-		return policy, err
-	}
-	policy.RemoteClientBitrateLimit = bitrate
-
-	return policy, nil
-}
-
-// DeletePolicyByName deletes a policy by its name.
-func (p *Postgres) DeletePolicyByName(name string) error {
-	_, err := p.db.Exec(`DELETE FROM policies WHERE policy_name =
-	$1`, name)
-	return err
+	return pg_delete(p, "invites", "id", id)
 }
 
 func pg_getValue[TVal, TWv any](t *Postgres, table, vk, wk string, wv TWv) (TVal, error) {

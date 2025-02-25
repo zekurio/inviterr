@@ -60,13 +60,39 @@ func (w *Wrapper) CreateUser(username, password string) (user *jf.UserDto, err e
 	return
 }
 
-func (w *Wrapper) GetUserByName(userId string) (user *jf.UserDto, err error) {
-	user, resp, err := w.client.UserAPI.GetUserById(w.ctx, userId).Execute()
+func (w *Wrapper) GetAllUsers() (users []jf.UserDto, err error) {
+	users, resp, err := w.client.UserAPI.GetUsers(w.ctx).Execute()
+	if err != nil || resp.StatusCode != 200 {
+		return nil, errors.New("failed to get users")
+	}
+
+	return
+}
+
+func (w *Wrapper) GetUserByID(id string) (user *jf.UserDto, err error) {
+	user, resp, err := w.client.UserAPI.GetUserById(w.ctx, id).Execute()
 	if err != nil || resp.StatusCode != 200 {
 		return nil, errors.New("failed to get user")
 	}
 
 	return
+}
+
+func (w *Wrapper) GetUserByName(name string) (user *jf.UserDto, err error) {
+	// first get all users
+	users, err := w.GetAllUsers()
+	if err != nil {
+		return nil, err
+	}
+
+	// find user by name
+	for _, u := range users {
+		if *u.Name.Get() == name {
+			return &u, nil
+		}
+	}
+
+	return nil, errors.New("user not found")
 }
 
 func (w *Wrapper) ApplyUserPolicy(userId string, policy jf.UserPolicy) (err error) {

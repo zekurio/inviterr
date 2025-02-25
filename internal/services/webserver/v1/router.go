@@ -28,6 +28,4 @@ func (r *Router) Route(router fiber.Router) {
 	router.Use(authMw.Handle)
 
 	new(controllers.InviteController).Setup(r.ctn, router.Group("/invite"))
-
-	new(controllers.PolicyController).Setup(r.ctn, router.Group("/policies"))
 }

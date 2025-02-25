@@ -13,9 +13,9 @@ type LoginRequest struct {
 }
 
 type InviteRequest struct {
-	PolicyName string    `json:"policy_name"`
-	ExpiresAt  time.Time `json:"expires_at"`
-	UseLimit   int       `json:"use_limit"`
+	TemplateUserID string    `json:"template_user_id"`
+	ExpiresAt      time.Time `json:"expires_at"`
+	UseLimit       int       `json:"use_limit"`
 }
 
 type RegisterRequest struct {

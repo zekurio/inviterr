@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"github.com/sarulabs/di/v2"
+	"github.com/sj14/jellyfin-go/api"
 	"github.com/zekurio/inviterr/internal/models"
 	"github.com/zekurio/inviterr/internal/services/database"
+	"github.com/zekurio/inviterr/internal/services/jellyfin"
 	"github.com/zekurio/inviterr/internal/util/static"
 	"github.com/zekurio/inviterr/pkg/random"
 )
@@ -19,6 +21,7 @@ var (
 
 type InviteService struct {
 	db      database.Database
+	jf      *jellyfin.Wrapper
 	invites map[string]models.Invite
 }
 
@@ -37,6 +40,7 @@ func New(ctn di.Container) (*InviteService, error) {
 
 	return &InviteService{
 		db:      db,
+		jf:      ctn.Get(static.DiJellyfin).(*jellyfin.Wrapper),
 		invites: invites,
 	}, nil
 }
@@ -47,10 +51,10 @@ func (i *InviteService) CheckInvite(id string) (bool, error) {
 	if !ok {
 		return false, ErrInvalidInvite
 	}
-	if invite.ExpiresAt.Before(time.Now()) {
+	if invite.IsExpired() {
 		return false, ErrInviteExpired
 	}
-	if invite.UseLimit != 0 && invite.TimesUsed >= invite.UseLimit {
+	if invite.IsUsed() {
 		return false, ErrInviteLimitReached
 	}
 
@@ -65,15 +69,8 @@ func (i *InviteService) ConsumeInvite(id string) error {
 	}
 
 	invite.TimesUsed++
-	if invite.UseLimit != 0 && invite.TimesUsed >= invite.UseLimit {
-		delete(i.invites, id)
-		if err := i.db.DeleteInvite(id); err != nil {
-			return err
-		}
-	} else {
-		if err := i.db.AddUpdateInvite(invite); err != nil {
-			return err
-		}
+	if err := i.db.AddUpdateInvite(invite); err != nil {
+		return err
 	}
 
 	return nil
@@ -83,12 +80,12 @@ func (i *InviteService) ConsumeInvite(id string) error {
 func (i *InviteService) CreateInvite(req models.InviteRequest) (models.Invite, error) {
 	id := random.MustGetRandBase64Str(6)
 	invite := models.Invite{
-		ID:        id,
-		Policy:    models.DehydratedPolicy{PolicyName: req.PolicyName},
-		CreatedAt: time.Now(),
-		ExpiresAt: req.ExpiresAt,
-		UseLimit:  req.UseLimit,
-		TimesUsed: 0,
+		ID:             id,
+		TemplateUserID: req.TemplateUserID,
+		CreatedAt:      time.Now(),
+		ExpiresAt:      req.ExpiresAt,
+		UseLimit:       req.UseLimit,
+		TimesUsed:      0,
 	}
 
 	if err := i.db.AddUpdateInvite(invite); err != nil {
@@ -98,4 +95,9 @@ func (i *InviteService) CreateInvite(req models.InviteRequest) (models.Invite, e
 	i.invites[id] = invite
 
 	return invite, nil
+}
+
+// GetInvitePolicy retrieves the user policy template from Jellyfin.
+func (i *InviteService) GetInvitePolicy(id string) (*api.UserPolicy, error) {
+	return i.jf.GetUserPolicy(i.invites[id].TemplateUserID)
 }

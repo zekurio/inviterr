@@ -62,5 +62,16 @@ func (rc *RegisterController) Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
+	// apply template user policy to the new user
+	tPolicy, err := rc.invites.GetInvitePolicy(inviteID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// apply policy
+	if err := rc.jf.ApplyUserPolicy(*user.Id, *tPolicy); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
 	return c.JSON(models.RegisterResponse{Username: user.GetName(), UserID: *user.Id})
 }
