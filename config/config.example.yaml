@@ -10,7 +10,7 @@ webserver:
 jellyfin:
   baseURL: "http://localhost:8096"
   apiKey: "your-jellyfin-api-key"
-  
+
 jellyseerr:
   baseURL: "http://localhost:5055"
   apiKey: "your-jellyseerr-api-key"
@@ -20,6 +20,6 @@ database:
   postgres:
     host: "localhost"
     port: 5432
-    database: "inviterr
+    database: "inviterr"
     username: "inviterr"
     password: "inviterr"
