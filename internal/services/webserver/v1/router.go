@@ -21,6 +21,7 @@ func (r *Router) Route(router fiber.Router) {
 
 	// Unprotected API routes
 
+	new(controllers.OthersController).Setup(r.ctn, router.Group("/"))
 	new(controllers.RegisterController).Setup(r.ctn, router.Group("/register"))
 
 	// Protected API routes
