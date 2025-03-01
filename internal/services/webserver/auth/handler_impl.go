@@ -83,7 +83,7 @@ func (h *AuthHandler) createTokens(user *jf_api.NullableUserDto, jfAccessToken s
 		"type":     "bearer",
 	}
 	accessJWT := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	accessToken, err = accessJWT.SignedString(h.secret)
+	accessToken, err = accessJWT.SignedString([]byte(h.secret))
 	if err != nil {
 		return "", "", err
 	}
@@ -96,7 +96,7 @@ func (h *AuthHandler) createTokens(user *jf_api.NullableUserDto, jfAccessToken s
 		"type":     "refresh",
 	}
 	refreshJWT := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshToken, err = refreshJWT.SignedString(h.secret)
+	refreshToken, err = refreshJWT.SignedString([]byte(h.secret))
 	if err != nil {
 		return "", "", err
 	}

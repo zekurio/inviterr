@@ -39,12 +39,12 @@ func (m *AuthMiddleware) Handle(ctx *fiber.Ctx) error {
 
 	tokenString := parts[1]
 	// Parse and validate the JWT
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 		// Ensure the signing method is HMAC
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
-		return m.secret, nil
+		return []byte(m.secret), nil
 	})
 
 	if err != nil || !token.Valid {
