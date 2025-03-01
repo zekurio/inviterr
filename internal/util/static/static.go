@@ -1,5 +1,5 @@
 package static
 
 var (
-	CookieName = "refresh"
+	CookieName = "auth_token"
 )

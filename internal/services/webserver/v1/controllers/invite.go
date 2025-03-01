@@ -17,6 +17,8 @@ func (ic *InviteController) Setup(ctn di.Container, r fiber.Router) {
 
 	r.Post("/create", ic.CreateInvite)
 	r.Get("/:id/check", ic.CheckInvite)
+	r.Get("/:id", ic.GetInvite)
+	r.Get("/", ic.GetAllInvites)
 }
 
 // @Summary Create Invite
@@ -61,4 +63,34 @@ func (ic *InviteController) CheckInvite(c *fiber.Ctx) error {
 	}
 	// redirect to the user creation page and pass the invite id as query param.
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "invite is valid"})
+}
+
+// @Summary Get Invite
+// @Description Get the invite details.
+// @Tags Invite
+// @Accept json
+// @Produce json
+// @Param id path string true "Invite ID"
+// @Success 200 {object} models.Invite
+// @Failure 400 {object} models.Error
+func (ic *InviteController) GetInvite(c *fiber.Ctx) error {
+	id := c.Params("id")
+	invite, err := ic.invites.GetInvite(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid invite"})
+	}
+	return c.JSON(invite)
+}
+
+// @Summary Get All Invites
+// @Description Get all invites.
+// @Tags Invite
+// @Accept json
+// @Produce json
+// @Success 200 {object} []models.Invite
+// @Failure 400 {object} models.Error
+// @Failure 500 {object} models.Error
+func (ic *InviteController) GetAllInvites(c *fiber.Ctx) error {
+	invites := ic.invites.GetAllInvites()
+	return c.JSON(invites)
 }

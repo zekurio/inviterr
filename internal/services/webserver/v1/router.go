@@ -21,12 +21,13 @@ func (r *Router) Route(router fiber.Router) {
 
 	// Unprotected API routes
 
-	new(controllers.OthersController).Setup(r.ctn, router.Group("/"))
+	new(controllers.OthersController).Setup(r.ctn, router)
+	new(controllers.AuthController).Setup(r.ctn, router.Group("/auth"))
 	new(controllers.RegisterController).Setup(r.ctn, router.Group("/register"))
 
 	// Protected API routes
 
 	router.Use(authMw.Handle)
 
-	new(controllers.InviteController).Setup(r.ctn, router.Group("/invite"))
+	new(controllers.InviteController).Setup(r.ctn, router.Group("/invites"))
 }

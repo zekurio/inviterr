@@ -101,3 +101,23 @@ func (i *InviteService) CreateInvite(req models.InviteRequest) (models.Invite, e
 func (i *InviteService) GetInvitePolicy(id string) (*api.UserPolicy, error) {
 	return i.jf.GetUserPolicy(i.invites[id].TemplateUserID)
 }
+
+// GetInvite returns the invite with the given ID.
+func (i *InviteService) GetInvite(id string) (models.Invite, error) {
+	invite, ok := i.invites[id]
+	if !ok {
+		return models.Invite{}, ErrInvalidInvite
+	}
+
+	return invite, nil
+}
+
+// GetAllInvites returns all invites.
+func (i *InviteService) GetAllInvites() []models.Invite {
+	invites := make([]models.Invite, 0, len(i.invites))
+	for _, invite := range i.invites {
+		invites = append(invites, invite)
+	}
+
+	return invites
+}
