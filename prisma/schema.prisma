@@ -7,23 +7,7 @@ generator client {
 
 datasource db {
     provider = "postgresql"
-    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
-    // Further reading:
-    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
-    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
     url      = env("DATABASE_URL")
-}
-
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
-
-    @@index([name])
 }
 
 // Necessary for Next auth
@@ -33,17 +17,18 @@ model Account {
     type                     String
     provider                 String
     providerAccountId        String
-    refresh_token            String? // @db.Text
-    access_token             String? // @db.Text
+    refresh_token            String?
+    access_token             String?
     expires_at               Int?
     token_type               String?
     scope                    String?
-    id_token                 String? // @db.Text
+    id_token                 String?
     session_state            String?
     user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
     refresh_token_expires_in Int?
 
     @@unique([provider, providerAccountId])
+    @@map("accounts")
 }
 
 model Session {
@@ -52,17 +37,21 @@ model Session {
     userId       String
     expires      DateTime
     user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@map("sessions")
 }
 
 model User {
-    id            String    @id @default(cuid())
-    name          String?
-    email         String?   @unique
-    emailVerified DateTime?
-    image         String?
-    accounts      Account[]
-    sessions      Session[]
-    posts         Post[]
+    id             String    @id @default(cuid())
+    name           String?
+    email          String?   @unique
+    emailVerified  DateTime?
+    image          String?
+    accounts       Account[]
+    sessions       Session[]
+    createdInvites Invite[]  @relation("CreatedBy")
+
+    @@map("users")
 }
 
 model VerificationToken {
@@ -71,4 +60,31 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+    @@map("verification_tokens")
+}
+
+model Invite {
+    id         String    @id @default(cuid())
+    code       String    @unique
+    createdAt  DateTime  @default(now())
+    expiresAt  DateTime?
+    usageCount Int       @default(0)
+    maxUses    Int?
+
+    createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
+    createdById String
+
+    profileId String
+    profile   Profile @relation(fields: [profileId], references: [id])
+
+    @@map("invites")
+}
+
+model Profile {
+    id                     String   @id @default(cuid())
+    name                   String?
+    jellyfinTemplateUserId String?
+    Invite                 Invite[]
+
+    @@map("profiles")
 }
