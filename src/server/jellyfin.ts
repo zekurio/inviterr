@@ -23,6 +23,16 @@ api.accessToken = env.JELLYFIN_API_KEY;
 const imageApi = getImageApi(api);
 const userApi = getUserApi(api);
 
+export async function getUserByName(username: string) {
+  const users = await userApi.getUsers();
+
+  if (!users.data) {
+    throw new Error("No users found");
+  }
+
+  return users.data.find((user) => user.Name === username);
+}
+
 // Export the API as the default export
-const jellyfinClient = { api, imageApi, userApi };
+const jellyfinClient = { api, imageApi, userApi, getUserByName };
 export default jellyfinClient;

@@ -3,7 +3,7 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/server/db";
-import jellyfinClient from "@/lib/jellyfin";
+import jellyfinClient from "@/server/jellyfin";
 import { z } from "zod";
 
 /**
@@ -52,8 +52,6 @@ export const authConfig = {
             validatedCredentials.username,
             validatedCredentials.password
           );
-          const image = jellyfinClient.imageApi.getUserImageUrl(response.data?.User);
-
           if (!response.data?.User?.Id || !response.data?.User?.Name) {
             return null;
           }
@@ -76,8 +74,9 @@ export const authConfig = {
           return {
             id: response.data.User.Id,
             name: response.data.User.Name,
+            accessToken: response.data.AccessToken,
             email: dbUser.email,
-            image: image,
+            image: dbUser.image,
           };
         } catch (error) {
           console.error(error);
@@ -164,7 +163,7 @@ export const authConfig = {
           AND: {
             accounts: {
               some: {
-                provider: "jellyfin",
+                provider: "credentials",
               }
             }
           }
