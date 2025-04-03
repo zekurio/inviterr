@@ -34,6 +34,20 @@ export async function getUserByName(username: string) {
   return users.data.find((user: UserDto) => user.Name === username);
 }
 
+export async function getUserImageUrl(userId: string, primaryTag: string) {
+  const res = await userApi.getUserById({ userId: userId });
+
+  if (!res) {
+    throw new Error("User not found");
+  }
+
+  const imageUrl = imageApi.getUserImageUrl(res.data);
+
+  return imageUrl;
+}
+
+
+
 // Export the API as the default export
 const jellyfinClient = { api, imageApi, userApi, getUserByName };
 export default jellyfinClient;

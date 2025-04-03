@@ -46,7 +46,7 @@ export const profilesRouter = createTRPCRouter({
 
         return profiles.map(p => ({
             ...p,
-            inviteCount: p._count.Invite,
+                inviteCount: p._count.Invite,
         }));
     }),
 
