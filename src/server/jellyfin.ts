@@ -3,6 +3,7 @@ import packageJson from "../../package.json";
 import { env } from "@/env";
 import { getImageApi } from "@jellyfin/sdk/lib/utils/api/image-api";
 import { getUserApi } from "@jellyfin/sdk/lib/utils/api/user-api";
+import type { UserDto } from "@jellyfin/sdk/lib/generated-client/models";
 
 // Create a singleton Jellyfin client
 const jellyfin = new Jellyfin({
@@ -30,7 +31,7 @@ export async function getUserByName(username: string) {
     throw new Error("No users found");
   }
 
-  return users.data.find((user) => user.Name === username);
+  return users.data.find((user: UserDto) => user.Name === username);
 }
 
 // Export the API as the default export

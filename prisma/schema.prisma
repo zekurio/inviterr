@@ -84,6 +84,7 @@ model Profile {
     id                     String   @id @default(cuid())
     name                   String?
     jellyfinTemplateUserId String?
+    isDefault              Boolean  @default(false)
     Invite                 Invite[]
 
     @@map("profiles")
