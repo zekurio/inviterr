@@ -64,8 +64,19 @@ CREATE TABLE "profiles" (
     "id" TEXT NOT NULL,
     "name" TEXT,
     "jellyfinTemplateUserId" TEXT,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "profiles_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "jellyfin_users" (
+    "id" TEXT NOT NULL,
+    "jellyfinUserId" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+
+    CONSTRAINT "jellyfin_users_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -86,6 +97,12 @@ CREATE UNIQUE INDEX "verification_tokens_identifier_token_key" ON "verification_
 -- CreateIndex
 CREATE UNIQUE INDEX "invites_code_key" ON "invites"("code");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "jellyfin_users_jellyfinUserId_key" ON "jellyfin_users"("jellyfinUserId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "jellyfin_users_userId_key" ON "jellyfin_users"("userId");
+
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -97,3 +114,6 @@ ALTER TABLE "invites" ADD CONSTRAINT "invites_createdById_fkey" FOREIGN KEY ("cr
 
 -- AddForeignKey
 ALTER TABLE "invites" ADD CONSTRAINT "invites_profileId_fkey" FOREIGN KEY ("profileId") REFERENCES "profiles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "jellyfin_users" ADD CONSTRAINT "jellyfin_users_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

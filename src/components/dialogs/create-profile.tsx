@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -90,7 +90,7 @@ export function CreateProfileDialog({ isOpen, onOpenChange }: CreateProfileDialo
         onOpenChange(open);
     };
 
-    const selectedUserDisplay = form.watch("jellyfinTemplateUserId") ? jellyfinUsersQuery.data?.find(u => u.id === form.watch("jellyfinTemplateUserId")) : null;
+    const selectedUserDisplay = form.watch("jellyfinTemplateUserId") ? jellyfinUsersQuery.data?.find((u: { id: string | undefined; }) => u.id === form.watch("jellyfinTemplateUserId")) : null;
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -142,8 +142,8 @@ export function CreateProfileDialog({ isOpen, onOpenChange }: CreateProfileDialo
                                                         {selectedUserDisplay ? (
                                                             <div className="flex items-center gap-2">
                                                                 <AvatarWithFallback 
-                                                                    src={selectedUserDisplay.avatarUrl ?? ''} 
-                                                                    name={selectedUserDisplay.name ?? 'User'} 
+                                                                    src={selectedUserDisplay.avatarUrl ?? ""} 
+                                                                    name={selectedUserDisplay.name ?? "User"} 
                                                                 />
                                                                 {selectedUserDisplay.name}
                                                             </div>
@@ -163,8 +163,8 @@ export function CreateProfileDialog({ isOpen, onOpenChange }: CreateProfileDialo
                                                     <SelectItem key={user.id} value={user.id}>
                                                         <div className="flex items-center gap-2">
                                                             <AvatarWithFallback 
-                                                                src={user.avatarUrl ?? ''} 
-                                                                name={user.name ?? 'User'} 
+                                                                src={user.avatarUrl ?? ""} 
+                                                                name={user.name ?? "User"} 
                                                             />
                                                             {user.name}
                                                         </div>

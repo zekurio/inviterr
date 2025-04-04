@@ -15,6 +15,7 @@ export const env = createEnv({
     AUTH_DISCORD_SECRET: z.string(),
     DATABASE_URL: z.string().url(),
     JELLYFIN_SERVER_URL: z.string().url(),
+    JELLYFIN_PUBLIC_SERVER_URL: z.string().url(),
     JELLYFIN_API_KEY: z.string(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -40,6 +41,7 @@ export const env = createEnv({
     AUTH_DISCORD_SECRET: process.env.AUTH_DISCORD_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
     JELLYFIN_SERVER_URL: process.env.JELLYFIN_SERVER_URL,
+    JELLYFIN_PUBLIC_SERVER_URL: process.env.JELLYFIN_PUBLIC_SERVER_URL,
     JELLYFIN_API_KEY: process.env.JELLYFIN_API_KEY,
     NODE_ENV: process.env.NODE_ENV,
   },

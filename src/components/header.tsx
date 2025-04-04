@@ -22,10 +22,10 @@ export function Header() {
             <Link 
               href="/account" 
               className={cn(
-                "text-sm font-medium hover:text-primary px-3 py-2 rounded-md transition-colors",
+                "text-sm font-medium px-3 py-2 rounded-md transition-colors",
                 segment === "account" || (pathname === "/account")
-                  ? "bg-white text-primary dark:bg-neutral-800"
-                  : "hover:bg-muted"  
+                  ? "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground"
+                  : "hover:bg-muted/60 hover:text-foreground/80"  
               )}
             >
               Account
@@ -33,10 +33,10 @@ export function Header() {
             <Link 
               href="/invites" 
               className={cn(
-                "text-sm font-medium hover:text-primary px-3 py-2 rounded-md transition-colors",
+                "text-sm font-medium px-3 py-2 rounded-md transition-colors",
                 segment === "invites" || pathname.startsWith("/invites")
-                  ? "bg-white text-primary dark:bg-neutral-800"
-                  : "hover:bg-muted"
+                  ? "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground"
+                  : "hover:bg-muted/60 hover:text-foreground/80"
               )}
             >
               Invites
@@ -44,10 +44,10 @@ export function Header() {
             <Link 
               href="/profiles" 
               className={cn(
-                "text-sm font-medium hover:text-primary px-3 py-2 rounded-md transition-colors",
+                "text-sm font-medium px-3 py-2 rounded-md transition-colors",
                 segment === "profiles" || pathname.startsWith("/profiles")
-                  ? "bg-white text-primary dark:bg-neutral-800"
-                  : "hover:bg-muted"
+                  ? "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground"
+                  : "hover:bg-muted/60 hover:text-foreground/80"
               )}
             >
               Profiles

@@ -103,7 +103,7 @@ export function EditProfileDialog({ profile, isOpen, onOpenChange }: EditProfile
     };
 
     const currentUserId = form.watch("jellyfinTemplateUserId");
-    const selectedUserDisplay = currentUserId ? jellyfinUsersQuery.data?.find(u => u.id === currentUserId) : null;
+    const selectedUserDisplay = currentUserId ? jellyfinUsersQuery.data?.find((u: { id: string | undefined; }) => u.id === currentUserId) : null;
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>

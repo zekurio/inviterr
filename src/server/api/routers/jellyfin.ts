@@ -31,7 +31,7 @@ export const jellyfinRouter = createTRPCRouter({
     }
 
     const usersWithAvatars = usersResponse.data
-      .map((user: UserDto): UserWithAvatar => { // Explicit return type for map
+      .map((user: UserDto): UserWithAvatar => {
         let avatarUrl: string | undefined = undefined;
         const userId = user.Id;
         const primaryTag = user.PrimaryImageTag;

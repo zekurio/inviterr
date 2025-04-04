@@ -1,10 +1,10 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { type DefaultSession, type NextAuthConfig } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
-import CredentialsProvider from "next-auth/providers/credentials";
+import ResendProvider from "next-auth/providers/resend";
+import { credentialsProvider } from "@/server/auth/credentials";
 import { db } from "@/server/db";
 import jellyfinClient from "@/server/jellyfin";
-import { z } from "zod";
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -32,58 +32,9 @@ declare module "next-auth" {
  */
 export const authConfig = {
   providers: [
+    ResendProvider,
     DiscordProvider,
-    CredentialsProvider({
-      name: "Jellyfin",
-      id: "jellyfin",
-      credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const credentialsSchema = z.object({
-          username: z.string(),
-          password: z.string(),
-        });
-        const validatedCredentials = credentialsSchema.parse(credentials);
-
-        try {
-          const response = await jellyfinClient.api.authenticateUserByName(
-            validatedCredentials.username,
-            validatedCredentials.password
-          );
-          if (!response.data?.User?.Id || !response.data?.User?.Name) {
-            return null;
-          }
-
-          const dbAccount = await db.account.findFirst({
-            where: {
-              providerAccountId: response.data.User.Id,
-            },
-            include: {
-              user: true,
-            },
-          });
-
-          if (!dbAccount) {
-            return null;
-          }
-
-          const dbUser = dbAccount.user;
-
-          return {
-            id: response.data.User.Id,
-            name: response.data.User.Name,
-            accessToken: response.data.AccessToken,
-            email: dbUser.email,
-            image: dbUser.image,
-          };
-        } catch (error) {
-          console.error(error);
-          return null;
-        }
-      },
-    }),
+    credentialsProvider,
     /**
      * ...add more providers here.
      *
@@ -97,92 +48,37 @@ export const authConfig = {
   adapter: PrismaAdapter(db),
   callbacks: {
     session: async ({ session, user }) => {
-      // First get the basic user data and accounts
-      const userWithAccounts = await db.user.findUnique({
-        where: { id: user.id },
-        include: {
-          accounts: true,
+      // get the jellyfin user linked to the user
+      const jellyfinUser = await db.jellyfinUser.findFirst({
+        where: {
+          userId: user.id,
         },
       });
-      
-      // Find the Jellyfin account if it exists
-      const jellyfinAccount = userWithAccounts?.accounts.find(
-        account => account.provider === "jellyfin"
-      );
-      
-      // Initialize session with basic user data
-      const enhancedSession = {
-        ...session,
-        user: {
-          ...session.user,
-          id: user.id,
-        },
-      };
-      
-      // If user has a Jellyfin account, fetch Jellyfin details and add to session
-      if (jellyfinAccount?.providerAccountId) {
-        try {
-          // Fetch Jellyfin user details using the providerAccountId
-          const jellyfinUserId = jellyfinAccount.providerAccountId;
-          const jellyfinUserResponse = await jellyfinClient.userApi.getUserById({
-            userId: jellyfinUserId
-          });
-          
-          const jellyfinData = jellyfinUserResponse?.data;
-          if (jellyfinData?.Id && jellyfinData?.Name) {
-            // Add Jellyfin user info to session
-            enhancedSession.user.jellyfin = {
-              id: jellyfinData.Id,
-              username: jellyfinData.Name,
-              isAdmin: !!jellyfinData.Policy?.IsAdministrator
-            };
-          }
-        } catch (error) {
-          console.error("Failed to fetch Jellyfin user data:", error);
-        }
+
+      if (!jellyfinUser) {
+        return session;
       }
-      
-      return enhancedSession;
+
+      // lookup the user's jellyfin user info
+      const jellyfinUserInfo = await jellyfinClient.userApi.getUserById({
+        userId: jellyfinUser.jellyfinUserId,
+      });
+
+      if (!jellyfinUserInfo.data) {
+        return session;
+      }
+
+      // add jellyfinUser info to the session
+      session.user.jellyfin = {
+        id: jellyfinUser.jellyfinUserId,
+        username: jellyfinUser.username,
+        isAdmin: jellyfinUserInfo.data.Policy?.IsAdministrator ?? false,
+      };
+
+      return session;
     },
     async signIn({ user, account, profile }) {
-      if (!account) {
-        return false;
-      }
-
-      if (account.provider === "jellyfin") {
-        return true;
-      }
-
-      const existingUser = await db.user.findFirst({
-        where: {
-          accounts: {
-            some: {
-              providerAccountId: account.providerAccountId,
-            }
-          },
-          AND: {
-            accounts: {
-              some: {
-                provider: "credentials",
-              }
-            }
-          }
-        },
-        include: {
-          accounts: true,
-        },
-      });
-      if (existingUser) {
-        return true;
-      } else {
-        return `/onboarding?account=${Buffer.from(JSON.stringify({
-          provider: account.provider,
-          providerAccountId: account.providerAccountId,
-          name: profile?.name,
-          email: profile?.email,
-          image: profile?.image
-        })).toString('base64')}`;
-      }
+      return true;
     },
   },
   pages: {
