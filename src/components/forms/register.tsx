@@ -12,53 +12,23 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/trpc/react";
-import { Progress } from "@/components/ui/progress";
 import type { TRPCClientErrorLike } from "@trpc/client";
 import type { AppRouter } from "@/server/api/root";
 import { PrivacyNotice } from "../privacy-notice";
-
-const MIN_LEN = 12;
-const MAX_LEN = 24;
-const checkLength = (password: string) =>
-  password.length >= MIN_LEN && password.length <= MAX_LEN;
-const checkUppercase = (password: string) => /[A-Z]/.test(password);
-const checkLowercase = (password: string) => /[a-z]/.test(password);
-const checkNumber = (password: string) => /[0-9]/.test(password);
-const checkSpecialChar = (password: string) => /[^A-Za-z0-9]/.test(password);
-
-function RequirementItem({
-  met,
-  children,
-}: {
-  met: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <li
-      className={cn(
-        "flex items-center",
-        met ? "text-green-600" : "text-destructive",
-      )}
-    >
-      {met ? (
-        <CheckCircle className="mr-2 h-4 w-4 flex-shrink-0" />
-      ) : (
-        <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
-      )}
-      {children}
-    </li>
-  );
-}
+import {
+  PasswordRequirements,
+  passwordValidation,
+} from "../password-requirements";
 
 export function RegisterForm({
   className,
-  onSuccess, // <<< MODIFIED: Changed signature
+  onSuccess,
   ...props
 }: React.ComponentPropsWithoutRef<"div"> & {
-  onSuccess: (data: { id: string; username: string }) => void; // <<< MODIFIED: Changed signature
+  onSuccess: (data: { id: string; username: string }) => void;
 }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -69,11 +39,9 @@ export function RegisterForm({
     onSuccess: (data: { id: string; username: string }) => {
       setError(null);
       console.log("Jellyfin account created successfully:", data);
-      // Call the onSuccess callback provided by the parent page
-      onSuccess(data); // <<< MODIFIED: Call parent callback
+      onSuccess(data);
     },
     onError: (error: TRPCClientErrorLike<AppRouter>) => {
-      // Handle specific TRPC errors or display a generic message
       if (error.data?.code === "CONFLICT") {
         setError(error.message);
       } else {
@@ -86,27 +54,7 @@ export function RegisterForm({
   });
 
   const passwordsMatch = password === confirmPassword;
-  const isLengthMet = checkLength(password);
-  const isUppercaseMet = checkUppercase(password);
-  const isLowercaseMet = checkLowercase(password);
-  const isNumberMet = checkNumber(password);
-  const isSpecialCharMet = checkSpecialChar(password);
-
-  const requirements = [
-    { met: isLengthMet, text: `${MIN_LEN}-${MAX_LEN} characters long` },
-    { met: isUppercaseMet, text: "At least one uppercase letter" },
-    { met: isLowercaseMet, text: "At least one lowercase letter" },
-    { met: isNumberMet, text: "At least one number" },
-    { met: isSpecialCharMet, text: "At least one special character" },
-  ];
-
-  const requirementsMetCount = requirements.filter((r) => r.met).length;
-  const allRequirementsMet = requirementsMetCount === requirements.length;
-
-  const getPasswordStrength = () => {
-    // Calculate strength as percentage of requirements met
-    return (requirementsMetCount / requirements.length) * 100;
-  };
+  const allPasswordRequirementsMet = passwordValidation.checkAll(password);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,7 +64,6 @@ export function RegisterForm({
       setError("Username is required.");
       return;
     }
-    // Basic alphanumeric check (more thorough check is on server)
     if (!/^[a-zA-Z0-9]+$/.test(username)) {
       setError("Username must be alphanumeric.");
       return;
@@ -129,7 +76,7 @@ export function RegisterForm({
       setError("Password is required.");
       return;
     }
-    if (!allRequirementsMet) {
+    if (!allPasswordRequirementsMet) {
       setError("Password does not meet all requirements.");
       return;
     }
@@ -200,21 +147,10 @@ export function RegisterForm({
                     createAccountMutation.isPending ||
                     createAccountMutation.isSuccess
                   }
-                  maxLength={24}
+                  maxLength={passwordValidation.MAX_LEN}
                 />
               </div>
-              {password.length > 0 && (
-                <div className="space-y-2">
-                  <Progress value={getPasswordStrength()} className="h-2" />
-                  <ul className="list-none space-y-1 pt-1 text-xs">
-                    {requirements.map((req) => (
-                      <RequirementItem key={req.text} met={req.met}>
-                        {req.text}
-                      </RequirementItem>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <PasswordRequirements password={password} />
               <div className="grid gap-2">
                 <Label htmlFor="confirm-password">Confirm Password</Label>
                 <Input
@@ -227,7 +163,7 @@ export function RegisterForm({
                     createAccountMutation.isPending ||
                     createAccountMutation.isSuccess
                   }
-                  maxLength={24}
+                  maxLength={passwordValidation.MAX_LEN}
                 />
                 {password && confirmPassword && !passwordsMatch && (
                   <p className="text-destructive text-xs">
@@ -242,7 +178,7 @@ export function RegisterForm({
                   createAccountMutation.isPending ||
                   createAccountMutation.isSuccess ||
                   !passwordsMatch ||
-                  !allRequirementsMet ||
+                  !allPasswordRequirementsMet ||
                   !username
                 }
               >

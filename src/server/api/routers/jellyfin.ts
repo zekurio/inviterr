@@ -18,7 +18,7 @@ interface DefinedUserWithAvatar {
 
 // Type guard function for filtering
 function isDefinedUser(user: UserWithAvatar): user is DefinedUserWithAvatar {
-    return typeof user.id === 'string' && typeof user.name === 'string';
+  return typeof user.id === "string" && typeof user.name === "string";
 }
 
 export const jellyfinRouter = createTRPCRouter({
@@ -37,9 +37,7 @@ export const jellyfinRouter = createTRPCRouter({
         const primaryTag = user.PrimaryImageTag;
 
         if (userId && primaryTag) {
-          avatarUrl = imageApi.getUserImageUrl(
-            user,
-          );
+          avatarUrl = imageApi.getUserImageUrl(user);
         }
 
         return {

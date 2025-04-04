@@ -98,13 +98,15 @@ export function ProfilesView() {
               Error loading data: {errorMessage}
             </div>
           ) : (
-            <Table>
+            <Table className="w-full table-fixed">
               <TableHeader>
                 <TableRow className="border-border/20">
-                  <TableHead className="font-bold">Profile</TableHead>
-                  <TableHead className="font-bold">Template User</TableHead>
-                  <TableHead className="font-bold">Invites</TableHead>
-                  <TableHead className="text-right font-bold">
+                  <TableHead className="w-[30%] font-bold">Profile</TableHead>
+                  <TableHead className="w-[35%] font-bold">
+                    Template User
+                  </TableHead>
+                  <TableHead className="w-[15%] font-bold">Invites</TableHead>
+                  <TableHead className="w-[20%] text-right font-bold">
                     Actions
                   </TableHead>
                 </TableRow>

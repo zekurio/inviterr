@@ -97,7 +97,7 @@ export function InvitesView() {
 
   // Copy invite link to clipboard
   const handleCopyInvite = (code: string) => {
-    const inviteLink = `${window.location.origin}/join?code=${code}`;
+    const inviteLink = `${window.location.origin}/register?code=${code}`;
     void navigator.clipboard
       .writeText(inviteLink)
       .then(() => toast.success("Invite link copied to clipboard"))
@@ -163,21 +163,21 @@ export function InvitesView() {
               Error loading data: {errorMessage}
             </div>
           ) : (
-            <Table>
+            <Table className="w-full table-fixed">
               <TableHeader>
                 <TableRow className="border-muted-foreground/10">
-                  <TableHead className="font-bold">Code</TableHead>
-                  <TableHead className="font-bold">Profile</TableHead>
-                  <TableHead className="font-bold">Usage</TableHead>
-                  <TableHead className="font-bold">Expires</TableHead>
-                  <TableHead className="font-bold">Created</TableHead>
-                  <TableHead className="text-right font-bold">
+                  <TableHead className="w-[25%] font-bold">Code</TableHead>
+                  <TableHead className="w-[15%] font-bold">Profile</TableHead>
+                  <TableHead className="w-[10%] font-bold">Usage</TableHead>
+                  <TableHead className="w-[20%] font-bold">Expires</TableHead>
+                  <TableHead className="w-[20%] font-bold">Created</TableHead>
+                  <TableHead className="w-[10%] text-right font-bold">
                     Actions
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoadingInvites ? ( // Base skeleton on invites loading
+                {isLoadingInvites ? (
                   // Skeleton Loading Rows
                   Array.from({ length: 5 }).map((_, index) => (
                     <TableRow
