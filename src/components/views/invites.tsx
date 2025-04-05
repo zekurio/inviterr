@@ -21,7 +21,6 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { api, type RouterOutputs } from "@/trpc/react";
-import { useRouter } from "next/navigation";
 import { CreateInviteDialog } from "@/components/dialogs/create-invite";
 import { EditInviteDialog } from "@/components/dialogs/edit-invite";
 import { DeleteInviteDialog } from "@/components/dialogs/delete-invite";
@@ -66,8 +65,6 @@ const isInviteDisabled = (invite: Invite) => {
 };
 
 export function InvitesView() {
-  const router = useRouter();
-
   // Dialog states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingInvite, setEditingInvite] = useState<Invite | null>(null);
@@ -78,23 +75,6 @@ export function InvitesView() {
   // Fetch profiles to check if creation is possible
   const profilesQuery = api.profiles.list.useQuery();
 
-  // Delete invite mutation
-  const deleteInviteMutation = api.invites.delete.useMutation({
-    onSuccess: () => {
-      toast.success("Invite deleted successfully");
-      void invitesQuery.refetch();
-    },
-    onError: (error) => {
-      toast.error(`Error deleting invite: ${error.message}`);
-    },
-  });
-
-  const handleDeleteInvite = (id: string) => {
-    if (confirm("Are you sure you want to delete this invite?")) {
-      deleteInviteMutation.mutate({ id });
-    }
-  };
-
   // Copy invite link to clipboard
   const handleCopyInvite = (code: string) => {
     const inviteLink = `${window.location.origin}/register?code=${code}`;
@@ -104,15 +84,9 @@ export function InvitesView() {
       .catch(() => toast.error("Failed to copy invite link"));
   };
 
-  // View invite details
-  const handleViewInvite = (id: string) => {
-    router.push(`/invites/${id}`);
-  };
-
   // Determine loading/error states
   const isLoadingInvites = invitesQuery.isLoading;
   const isLoadingProfiles = profilesQuery.isLoading;
-  const isLoading = isLoadingInvites || isLoadingProfiles; // Combine loading states
 
   const isErrorInvites = invitesQuery.isError;
   const isErrorProfiles = profilesQuery.isError;
@@ -121,8 +95,6 @@ export function InvitesView() {
     invitesQuery.error?.message ??
     profilesQuery.error?.message ??
     "Unknown error";
-
-  const isRefetching = invitesQuery.isRefetching || profilesQuery.isRefetching;
 
   const invites = invitesQuery.data ?? [];
   const noProfilesAvailable =

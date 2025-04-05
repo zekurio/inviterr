@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Star, User, Loader2, Trash2, Pencil } from "lucide-react";
+import { Star, Loader2, Trash2, Pencil } from "lucide-react";
 import {
   Card,
   CardHeader,

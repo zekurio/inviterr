@@ -1,5 +1,6 @@
 services:
   db:
+    container_name: inviterr-db
     image: postgres:15
     ports:
       - "5432:5432"
@@ -9,6 +10,17 @@ services:
       POSTGRES_DB: inviterr
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    container_name: inviterr-pgadmin
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@inviterr.com
+      PGADMIN_DEFAULT_PASSWORD: inviterr
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
 
 volumes:
   postgres_data:

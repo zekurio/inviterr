@@ -36,7 +36,7 @@ function RequirementItem({
 }
 
 interface PasswordRequirementsProps {
-  password?: string; // Make password optional for initial state
+  password?: string;
 }
 
 export function PasswordRequirements({
@@ -57,14 +57,11 @@ export function PasswordRequirements({
   ];
 
   const requirementsMetCount = requirements.filter((r) => r.met).length;
-  const allRequirementsMet = requirementsMetCount === requirements.length;
 
   const getPasswordStrength = () => {
-    // Calculate strength as percentage of requirements met
     return (requirementsMetCount / requirements.length) * 100;
   };
 
-  // Only render if password has some length
   if (password.length === 0) {
     return null;
   }
@@ -83,7 +80,6 @@ export function PasswordRequirements({
   );
 }
 
-// Export check functions and constants if they might be needed elsewhere
 export const passwordValidation = {
   MIN_LEN,
   MAX_LEN,

@@ -7,13 +7,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogClose, // Added DialogClose
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -22,7 +21,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage, // Added FormDescription
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,11 +32,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert components
-import { Loader2, Plus, AlertTriangle, AlertCircle } from "lucide-react"; // Added AlertTriangle and AlertCircle
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2, AlertTriangle, AlertCircle } from "lucide-react";
 import { api, type RouterOutputs } from "@/trpc/react";
 import { DatePicker } from "@/components/ui/date-picker";
-import { useState } from "react";
 
 // Infer Profile type from API
 type Profile = RouterOutputs["profiles"]["list"][number];
@@ -46,7 +44,7 @@ type Profile = RouterOutputs["profiles"]["list"][number];
 const inviteFormSchema = z.object({
   profileId: z.string().min(1, "Profile is required"),
   expiresAt: z.date().optional().nullable(),
-  maxUses: z.coerce.number().int().positive().optional().nullable(), // Use coerce for input type="number"
+  maxUses: z.coerce.number().int().positive().optional().nullable(),
 });
 type InviteFormData = z.infer<typeof inviteFormSchema>;
 
@@ -77,7 +75,7 @@ export function CreateInviteDialog({
   const maxUsesValue = form.watch("maxUses");
   // Show warning only if at least one field was touched and both are now empty
   const showWarning =
-    (touchedFields.expiresAt || touchedFields.maxUses) &&
+    (touchedFields.expiresAt ?? touchedFields.maxUses) &&
     !expiresAtValue &&
     !maxUsesValue;
 
@@ -111,8 +109,7 @@ export function CreateInviteDialog({
   function onSubmit(data: InviteFormData) {
     createMutation.mutate({
       ...data,
-      // Ensure empty string for maxUses becomes null/undefined
-      maxUses: data.maxUses || null,
+      maxUses: data.maxUses ?? null,
     });
   }
 
@@ -193,7 +190,7 @@ export function CreateInviteDialog({
               <FormField
                 control={form.control}
                 name="expiresAt"
-                render={({ field }) => (
+                render={() => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Expires At (Optional)</FormLabel>
                     <Controller
@@ -201,10 +198,10 @@ export function CreateInviteDialog({
                       name="expiresAt"
                       render={({ field: controllerField }) => (
                         <DatePicker
-                          date={controllerField.value ?? undefined} // Pass undefined if null
+                          date={controllerField.value ?? undefined}
                           setDate={(date) =>
                             controllerField.onChange(date ?? null)
-                          } // Ensure null is passed back
+                          }
                         />
                       )}
                     />

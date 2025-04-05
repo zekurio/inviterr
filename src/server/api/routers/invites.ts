@@ -7,45 +7,36 @@ import {
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
 
-// Schema for invite creation - Adjusted for dialog input
 const createInviteSchema = z.object({
-  profileId: z.string().min(1, "Profile is required"), // Require profileId
-  expiresAt: z.date().optional().nullable(), // Allow null for clearing
-  maxUses: z.number().int().positive().optional().nullable(), // Allow null for clearing
+  profileId: z.string().min(1, "Profile is required"),
+  expiresAt: z.date().optional().nullable(),
+  maxUses: z.number().int().positive().optional().nullable(),
 });
 
-// Schema for invite verification
 const verifyInviteSchema = z.object({
   code: z.string(),
 });
 
-// Schema for invite update - Adjusted for dialog input
 const updateInviteSchema = z.object({
   id: z.string(),
-  expiresAt: z.date().optional().nullable(), // Allow null for clearing
-  maxUses: z.number().int().positive().optional().nullable(), // Allow null for clearing
-  // profileId update might be complex, maybe disallow for now or handle carefully
-  // profileId: z.string().optional(),
+  expiresAt: z.date().optional().nullable(),
+  maxUses: z.number().int().positive().optional().nullable(),
 });
 
 export const invitesRouter = createTRPCRouter({
-  create: publicProcedure
-    .input(createInviteSchema) // Use updated schema
+  create: protectedProcedure
+    .input(createInviteSchema)
     .mutation(async ({ ctx, input }) => {
-      // TODO: Re-enable admin check
-      // if (!ctx.session.user.jellyfin?.isAdmin) {
-      //   throw new TRPCError({
-      //     code: "FORBIDDEN",
-      //     message: "Only admins can create invites",
-      //   });
-      // }
+      if (!ctx.session.user.jellyfin?.isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only admins can create invites",
+        });
+      }
 
-      // Generate a unique invite code
       const code = crypto.randomBytes(8).toString("hex");
+      const creatorId = ctx.session.user.id;
 
-      let creatorId: string | undefined = ctx.session?.user?.id;
-
-      // Create the invite
       const invite = await ctx.db.invite.create({
         data: {
           code,
@@ -63,20 +54,21 @@ export const invitesRouter = createTRPCRouter({
             },
           },
         },
+        include: {
+          profile: { select: { id: true, name: true } },
+        },
       });
 
       return invite;
     }),
 
-  // list invites - temporarily public
-  list: publicProcedure.query(async ({ ctx }) => {
-    // TODO: Re-enable admin check
-    // if (!ctx.session.user.jellyfin?.isAdmin) {
-    //   throw new TRPCError({
-    //     code: "FORBIDDEN",
-    //     message: "Only admins can list invites",
-    //   });
-    // }
+  list: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session.user.jellyfin?.isAdmin) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Only admins can list invites",
+      });
+    }
 
     const invites = await ctx.db.invite.findMany({
       include: {
@@ -92,35 +84,24 @@ export const invitesRouter = createTRPCRouter({
             name: true,
           },
         },
-        // If usageCount isn't direct, you might need:
-        // _count: { select: { InviteUsage: true } }
       },
       orderBy: {
         createdAt: "desc",
       },
     });
 
-    // Add usageCount directly (assuming it exists on the model)
-    // If usageCount is not directly on Invite, you might need relations
-    // This part assumes `Invite` model has `usageCount` field
-    return invites.map((invite) => ({
-      ...invite,
-      // usageCount is likely already included if it's a direct field
-      // If it's a relation count, you'd use _count like in profiles
-    }));
+    return invites;
   }),
 
-  // get invite by id - temporarily public
-  getById: publicProcedure
+  getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      // TODO: Re-enable admin check
-      // if (!ctx.session.user.jellyfin?.isAdmin) {
-      //   throw new TRPCError({
-      //     code: "FORBIDDEN",
-      //     message: "Only admins can view invite details",
-      //   });
-      // }
+      if (!ctx.session.user.jellyfin?.isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only admins can view invite details",
+        });
+      }
 
       const invite = await ctx.db.invite.findUnique({
         where: { id: input.id },
@@ -150,7 +131,6 @@ export const invitesRouter = createTRPCRouter({
       return invite;
     }),
 
-  // verify invite - remains public
   verify: publicProcedure
     .input(verifyInviteSchema)
     .query(async ({ ctx, input }) => {
@@ -173,12 +153,10 @@ export const invitesRouter = createTRPCRouter({
         });
       }
 
-      // Check if the invite has expired
       if (invite.expiresAt && invite.expiresAt < new Date()) {
         return { valid: false, reason: "expired" };
       }
 
-      // Check if invite has reached max uses
       if (invite.maxUses && invite.usageCount >= invite.maxUses) {
         return { valid: false, reason: "max_uses_reached" };
       }
@@ -189,32 +167,25 @@ export const invitesRouter = createTRPCRouter({
       };
     }),
 
-  // update invite - temporarily public
-  update: publicProcedure
-    .input(updateInviteSchema) // Use updated schema
+  update: protectedProcedure
+    .input(updateInviteSchema)
     .mutation(async ({ ctx, input }) => {
-      // TODO: Re-enable admin check
-      // if (!ctx.session.user.jellyfin?.isAdmin) {
-      //   throw new TRPCError({
-      //     code: "FORBIDDEN",
-      //     message: "Only admins can update invites",
-      //   });
-      // }
+      if (!ctx.session.user.jellyfin?.isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only admins can update invites",
+        });
+      }
 
       const updateData: { expiresAt?: Date | null; maxUses?: number | null } =
         {};
 
-      // Handle optional fields explicitly to allow setting to null/undefined
       if (input.expiresAt !== undefined) {
-        updateData.expiresAt = input.expiresAt; // Pass null or Date
+        updateData.expiresAt = input.expiresAt;
       }
       if (input.maxUses !== undefined) {
-        // Prisma might expect null to unset, or a number
-        updateData.maxUses = input.maxUses; // Pass null or number
+        updateData.maxUses = input.maxUses;
       }
-
-      // Not allowing profileId change via this endpoint for simplicity
-      // if (input.profileId) { ... }
 
       const invite = await ctx.db.invite.update({
         where: { id: input.id },
@@ -227,7 +198,6 @@ export const invitesRouter = createTRPCRouter({
       return invite;
     }),
 
-  // consume invite - remains public
   consume: publicProcedure
     .input(z.object({ code: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -245,7 +215,6 @@ export const invitesRouter = createTRPCRouter({
         });
       }
 
-      // Check if the invite has expired
       if (invite.expiresAt && invite.expiresAt < new Date()) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -253,7 +222,6 @@ export const invitesRouter = createTRPCRouter({
         });
       }
 
-      // Check if invite has reached max uses
       if (invite.maxUses && invite.usageCount >= invite.maxUses) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -261,7 +229,6 @@ export const invitesRouter = createTRPCRouter({
         });
       }
 
-      // Increment usage count
       await ctx.db.invite.update({
         where: { id: invite.id },
         data: { usageCount: invite.usageCount + 1 },
@@ -273,17 +240,70 @@ export const invitesRouter = createTRPCRouter({
       };
     }),
 
-  // delete invite - temporarily public
-  delete: publicProcedure
+  incrementUsage: publicProcedure
+    .input(z.object({ code: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const invite = await ctx.db.invite.findUnique({
+        where: { code: input.code },
+      });
+
+      if (!invite) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invite code not found during usage increment.",
+        });
+      }
+
+      if (invite.expiresAt && invite.expiresAt < new Date()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invite has expired.",
+        });
+      }
+
+      if (invite.maxUses && invite.usageCount >= invite.maxUses) {
+        console.warn(
+          `Invite code ${input.code} usage increment attempted when already at max uses.`,
+        );
+        return { success: true, alreadyAtMax: true };
+      }
+
+      try {
+        await ctx.db.invite.update({
+          where: { id: invite.id },
+          data: { usageCount: { increment: 1 } },
+        });
+        console.log(`Incremented usage count for invite code: ${input.code}`);
+        return { success: true };
+      } catch (error) {
+        console.error(
+          `Failed to increment usage count for invite code ${input.code}:`,
+          error,
+        );
+        return { success: false };
+      }
+    }),
+
+  delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: Re-enable admin check
-      // if (!ctx.session.user.jellyfin?.isAdmin) {
-      //   throw new TRPCError({
-      //     code: "FORBIDDEN",
-      //     message: "Only admins can delete invites",
-      //   });
-      // }
+      if (!ctx.session.user.jellyfin?.isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only admins can delete invites",
+        });
+      }
+
+      const existingInvite = await ctx.db.invite.findUnique({
+        where: { id: input.id },
+      });
+
+      if (!existingInvite) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invite not found",
+        });
+      }
 
       await ctx.db.invite.delete({
         where: {

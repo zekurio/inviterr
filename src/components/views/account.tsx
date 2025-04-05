@@ -11,19 +11,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
-import { User, Ban, Check, AlertTriangle, Loader2, LogOut } from "lucide-react";
+import {
+  Ban,
+  Check,
+  AlertTriangle,
+  Loader2,
+  LogOut,
+  LinkIcon,
+  Link2Off,
+  ExternalLink,
+  Mail,
+} from "lucide-react";
 import {
   PasswordRequirements,
   passwordValidation,
@@ -31,31 +30,65 @@ import {
 import { api } from "@/trpc/react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { signOut } from "next-auth/react";
-import Image from "next/image";
-import { AvatarWithFallback } from "@/components/avatar";
+import { signOut, signIn } from "next-auth/react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FaDiscord } from "react-icons/fa";
+import { UnlinkProviderDialog } from "@/components/dialogs/unlink-provider";
+import { DeleteJellyfinAccountDialog } from "@/components/dialogs/delete-jellyfin-account";
 
-export function AccountView({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
-  // --- tRPC Hooks --- //
+export function AccountView() {
+  const utils = api.useUtils(); // Get tRPC utils for invalidation
   const {
     data: userData,
     isLoading: isLoadingUser,
     error: userError,
-  } = api.accounts.getCurrentUser.useQuery(
-    undefined, // No input needed for getCurrentUser
-    {
-      staleTime: Infinity, // User data unlikely to change often in this view
-      retry: false, // Don't retry if fetching user fails initially
+    refetch: refetchUser,
+  } = api.accounts.getCurrentUser.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000,
+    retry: (failureCount, error) => {
+      if (error.data?.code === "UNAUTHORIZED") return false;
+      return failureCount < 1;
     },
-  );
+  });
 
-  const updateUsernameMutation = api.accounts.updateUsername.useMutation();
+  // Mutations
+  const updateUsernameMutation = api.accounts.updateUsername.useMutation({
+    onSuccess: () => utils.accounts.getCurrentUser.invalidate(),
+  });
   const updatePasswordMutation = api.accounts.updatePassword.useMutation();
-  const deleteAccountMutation = api.accounts.deleteAccount.useMutation();
+  const deleteAccountMutation = api.accounts.deleteAccount.useMutation({
+    onSuccess: () => {
+      setDeleteError(null);
+      void signOut({ callbackUrl: "/" });
+    },
+    onError: (error) => {
+      setDeleteError(error.message);
+    },
+  });
+  const linkJellyfinMutation = api.accounts.linkJellyfinAccount.useMutation({
+    onSuccess: () => {
+      setLinkJfUsername("");
+      setLinkJfPassword("");
+      setLinkJfError(null);
+      utils.accounts.getCurrentUser.invalidate();
+    },
+    onError: (error) => {
+      setLinkJfError(error.message);
+    },
+  });
+  const unlinkProviderMutation = api.accounts.unlinkProvider.useMutation({
+    onSuccess: (data, variables) => {
+      console.log(`Successfully unlinked ${variables.provider}`);
+      setUnlinkError(null);
+      utils.accounts.getCurrentUser.invalidate();
+    },
+    onError: (error, variables) => {
+      console.error(`Error unlinking ${variables.provider}:`, error);
+      setUnlinkError(
+        `Failed to unlink ${variables.provider}: ${error.message}`,
+      );
+    },
+  });
 
   // --- State --- //
   // Username state
@@ -71,16 +104,29 @@ export function AccountView({
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   // Delete account state
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Link Jellyfin state
+  const [linkJfUsername, setLinkJfUsername] = useState("");
+  const [linkJfPassword, setLinkJfPassword] = useState("");
+  const [linkJfError, setLinkJfError] = useState<string | null>(null);
+
+  // Link Email state
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linkEmailError, setLinkEmailError] = useState<string | null>(null);
+  const [linkEmailLoading, setLinkEmailLoading] = useState(false);
+  const [linkEmailSuccess, setLinkEmailSuccess] = useState(false);
+
+  // Unlink Provider state
+  const [unlinkError, setUnlinkError] = useState<string | null>(null);
 
   // --- Effects --- //
   // Set initial username from fetched data
   useEffect(() => {
-    if (userData?.username) {
-      setUsername(userData.username);
+    if (userData?.jellyfin?.username) {
+      setUsername(userData.jellyfin.username);
     }
-  }, [userData]);
+  }, [userData?.jellyfin?.username]);
 
   // Reset success/error messages on mutation state change
   useEffect(() => {
@@ -98,7 +144,6 @@ export function AccountView({
   useEffect(() => {
     if (updatePasswordMutation.isSuccess) {
       setPasswordSuccess(true);
-      // Clear password fields on success
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -112,29 +157,33 @@ export function AccountView({
     updatePasswordMutation.error,
   ]);
 
+  // Reset errors when relevant mutations reset
   useEffect(() => {
-    if (deleteAccountMutation.isError)
-      setDeleteError(deleteAccountMutation.error.message);
-    else setDeleteError(null);
-    if (deleteAccountMutation.isSuccess) {
-      setIsDeleteDialogOpen(false);
-      // Sign out the user after successful deletion
-      void signOut({ callbackUrl: "/" }); // Redirect to home after sign out
+    if (deleteAccountMutation.isIdle || deleteAccountMutation.isSuccess) {
+      setDeleteError(null);
     }
-  }, [
-    deleteAccountMutation.isSuccess,
-    deleteAccountMutation.isError,
-    deleteAccountMutation.error,
-  ]);
+  }, [deleteAccountMutation.isIdle, deleteAccountMutation.isSuccess]);
+
+  useEffect(() => {
+    if (unlinkProviderMutation.isIdle || unlinkProviderMutation.isSuccess) {
+      setUnlinkError(null);
+    }
+  }, [unlinkProviderMutation.isIdle, unlinkProviderMutation.isSuccess]);
+
+  // Reset email link form on user data change (e.g., after linking/unlinking)
+  useEffect(() => {
+    setLinkEmail("");
+    setLinkEmailError(null);
+    setLinkEmailSuccess(false);
+    setLinkEmailLoading(false);
+  }, [userData?.linkedEmail]);
 
   // --- Event Handlers --- //
   const handleUsernameUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     setUsernameError(null);
     setUsernameSuccess(false);
-
-    if (!username || username === userData?.username) return; // Don't submit if unchanged
-
+    if (!username || username === userData?.jellyfin?.username) return;
     if (
       !/^[a-zA-Z0-9]+$/.test(username) ||
       username.length > 12 ||
@@ -143,7 +192,6 @@ export function AccountView({
       setUsernameError("Username must be alphanumeric (1-12 characters).");
       return;
     }
-
     updateUsernameMutation.mutate({ newUsername: username });
   };
 
@@ -151,7 +199,6 @@ export function AccountView({
     e.preventDefault();
     setPasswordError(null);
     setPasswordSuccess(false);
-
     if (!currentPassword || !newPassword || !confirmPassword) {
       setPasswordError("All password fields are required");
       return;
@@ -164,13 +211,94 @@ export function AccountView({
       setPasswordError("New password does not meet all requirements.");
       return;
     }
-
     updatePasswordMutation.mutate({ currentPassword, newPassword });
   };
 
+  // Handler for linking existing Jellyfin account
+  const handleLinkSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLinkJfError(null);
+    if (!linkJfUsername || !linkJfPassword) {
+      setLinkJfError("Jellyfin username and password are required.");
+      return;
+    }
+    linkJellyfinMutation.mutate({
+      username: linkJfUsername,
+      password: linkJfPassword,
+    });
+  };
+
+  // Handler for linking email account
+  const handleLinkEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLinkEmailError(null);
+    setLinkEmailSuccess(false);
+    if (!linkEmail) {
+      setLinkEmailError("Email address is required.");
+      return;
+    }
+    // Basic email format check (consider a more robust library if needed)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(linkEmail)) {
+      setLinkEmailError("Please enter a valid email address.");
+      return;
+    }
+
+    setLinkEmailLoading(true);
+    try {
+      const result = await signIn("resend", {
+        email: linkEmail,
+        redirect: false, // Don't redirect, stay on the page
+        callbackUrl: window.location.pathname, // Or specific page if needed
+      });
+
+      if (result?.error) {
+        // Handle potential errors from NextAuth/Resend
+        console.error("Email Sign In Error:", result.error);
+        setLinkEmailError(
+          result.error === "CredentialsSignin" // Example check, adjust as needed
+            ? "Failed to send link. Please check the email and try again."
+            : "An unexpected error occurred.",
+        );
+        setLinkEmailLoading(false);
+      } else if (result?.ok) {
+        // OK means email was sent (or attempted)
+        setLinkEmailSuccess(true);
+        // Keep loading true to disable form until user clicks link or page reloads
+      } else {
+        // Handle other unexpected cases
+        setLinkEmailError("An unknown error occurred while sending the link.");
+        setLinkEmailLoading(false);
+      }
+    } catch (error) {
+      console.error("Sign in error:", error);
+      setLinkEmailError("An unexpected error occurred.");
+      setLinkEmailLoading(false);
+    }
+    // Don't setLinkEmailLoading(false) on success, keep form disabled
+  };
+
+  // Specific handler for deleting the Jellyfin account
   const handleAccountDelete = () => {
     setDeleteError(null);
     deleteAccountMutation.mutate();
+  };
+
+  // Specific handler for unlinking Discord
+  const handleUnlinkDiscord = () => {
+    setUnlinkError(null);
+    unlinkProviderMutation.mutate({ provider: "discord" });
+  };
+
+  // Specific handler for unlinking Jellyfin
+  const handleUnlinkJellyfin = () => {
+    setUnlinkError(null);
+    unlinkProviderMutation.mutate({ provider: "jellyfin" });
+  };
+
+  // Specific handler for unlinking Email
+  const handleUnlinkEmail = () => {
+    setUnlinkError(null);
+    unlinkProviderMutation.mutate({ provider: "resend" });
   };
 
   // --- Derived State --- //
@@ -185,7 +313,8 @@ export function AccountView({
   );
   const canUpdateUsername = Boolean(
     username &&
-      username !== userData?.username &&
+      userData?.jellyfin &&
+      username !== userData.jellyfin.username &&
       /^[a-zA-Z0-9]+$/.test(username) &&
       username.length <= 12 &&
       username.length >= 1,
@@ -195,14 +324,12 @@ export function AccountView({
   if (isLoadingUser) {
     // --- Skeleton Loading State --- //
     return (
-      <div className="animate-pulse space-y-6">
-        {/* Header Skeleton */}
+      <div className="animate-pulse space-y-4">
         <div className="flex items-center justify-between">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-9 w-24" />
         </div>
 
-        {/* Profile Card Skeleton */}
         <Card>
           <CardHeader>
             <Skeleton className="h-6 w-24" />
@@ -217,20 +344,35 @@ export function AccountView({
               </div>
             </div>
             <Separator />
+            <Skeleton className="h-5 w-32" />
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-9 w-28" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-9 w-28" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-4">
               <div className="grid gap-2">
-                <Skeleton className="h-4 w-16" /> {/* Label */}
-                <Skeleton className="h-10 w-full" /> {/* Input */}
-                <Skeleton className="h-3 w-32" /> {/* Hint text */}
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-3 w-32" />
               </div>
               <div className="flex justify-end">
-                <Skeleton className="h-10 w-36" /> {/* Button */}
+                <Skeleton className="h-10 w-36" />
               </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Password Card Skeleton */}
         <Card>
           <CardHeader>
             <Skeleton className="h-6 w-40" />
@@ -238,16 +380,15 @@ export function AccountView({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Skeleton className="h-4 w-28" /> {/* Label */}
-              <Skeleton className="h-10 w-full" /> {/* Input */}
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-10 w-full" />
             </div>
             <div className="grid gap-2">
-              <Skeleton className="h-4 w-24" /> {/* Label */}
-              <Skeleton className="h-10 w-full" /> {/* Input */}
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
             </div>
-            {/* Skeleton for requirements (optional, can simplify) */}
             <div className="space-y-2 pt-1">
-              <Skeleton className="h-2 w-full" /> {/* Progress */}
+              <Skeleton className="h-2 w-full" />
               <Skeleton className="mt-1 h-3 w-48" />
               <Skeleton className="h-3 w-40" />
               <Skeleton className="h-3 w-44" />
@@ -255,19 +396,15 @@ export function AccountView({
               <Skeleton className="h-3 w-48" />
             </div>
             <div className="grid gap-2">
-              <Skeleton className="h-4 w-40" /> {/* Label */}
-              <Skeleton className="h-10 w-full" /> {/* Input */}
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-10 w-full" />
             </div>
             <div className="flex justify-end">
-              <Skeleton className="h-10 w-36" /> {/* Button */}
+              <Skeleton className="h-10 w-36" />
             </div>
           </CardContent>
         </Card>
-
-        {/* Danger Zone Card Skeleton */}
         <Card className="border-transparent">
-          {" "}
-          {/* Avoid double border with skeleton */}
           <CardHeader>
             <Skeleton className="h-6 w-32" />
             <Skeleton className="h-4 w-48" />
@@ -280,7 +417,7 @@ export function AccountView({
                   <Skeleton className="h-5 w-36" />
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="mt-1 h-9 w-32" /> {/* Button */}
+                  <Skeleton className="mt-1 h-9 w-32" />
                 </div>
               </div>
             </div>
@@ -296,280 +433,502 @@ export function AccountView({
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error Loading Account</AlertTitle>
         <AlertDescription>{userError.message}</AlertDescription>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={() => refetchUser()}
+        >
+          Retry
+        </Button>
       </Alert>
     );
   }
 
+  // Main Account View Render
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Account Settings</h1>
         <Button variant="outline" size="sm" onClick={() => signOut()}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Log Out
+          <LogOut className="mr-2 h-4 w-4" /> Log Out
         </Button>
       </div>
-
       <Card>
-        <CardHeader>
-          <CardTitle>Profile</CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle>Linked Accounts</CardTitle>
           <CardDescription>
-            Manage your Jellyfin user profile settings.
+            Manage connections to external services.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center space-x-4">
-            <AvatarWithFallback
-              src={userData?.image ?? ""}
-              name={userData?.username ?? "User"}
-            />
-            <div>
-              <p className="text-sm leading-none font-medium">
-                {userData?.username ?? "..."}
-              </p>
-              {/* Display Email (no blur) */}
-              {userData?.email && (
-                <p className="text-muted-foreground text-sm">
-                  {userData.email}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <Separator />
-
-          <form onSubmit={handleUsernameUpdate} className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  setUsernameSuccess(false);
-                  setUsernameError(null);
-                }}
-                placeholder="Enter your username"
-                disabled={updateUsernameMutation.isPending}
-                maxLength={12}
-              />
-              <p className="text-muted-foreground text-xs">
-                Alphanumeric, 1-12 characters.
-              </p>
-              {usernameError && (
-                <p className="text-destructive flex items-center gap-1 text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  {usernameError}
-                </p>
-              )}
-              {usernameSuccess && (
-                <p className="flex items-center gap-1 text-sm text-green-600 dark:text-green-500">
-                  <Check className="h-4 w-4" />
-                  Username updated successfully
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={
-                  updateUsernameMutation.isPending || !canUpdateUsername
-                }
-              >
-                {updateUsernameMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
-                    Updating...
-                  </>
-                ) : (
-                  "Update Username"
-                )}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* PASSWORD SECTION */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Change Password</CardTitle>
-          <CardDescription>
-            Update your Jellyfin account password.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handlePasswordUpdate} className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="current-password">Current Password</Label>
-              <Input
-                id="current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => {
-                  setCurrentPassword(e.target.value);
-                  setPasswordSuccess(false);
-                  setPasswordError(null);
-                }}
-                disabled={updatePasswordMutation.isPending}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="new-password">New Password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => {
-                  setNewPassword(e.target.value);
-                  setPasswordSuccess(false);
-                  setPasswordError(null);
-                }}
-                maxLength={passwordValidation.MAX_LEN}
-                disabled={updatePasswordMutation.isPending}
-              />
-            </div>
-
-            <PasswordRequirements password={newPassword} />
-
-            <div className="grid gap-2">
-              <Label htmlFor="confirm-password">Confirm New Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  setPasswordSuccess(false);
-                  setPasswordError(null);
-                }}
-                maxLength={passwordValidation.MAX_LEN}
-                disabled={updatePasswordMutation.isPending}
-              />
-            </div>
-
-            {passwordError && (
-              <div className="text-destructive flex items-center gap-1 text-sm">
-                <AlertCircle className="h-4 w-4" />
-                {passwordError}
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between rounded-lg border p-2">
+            <div className="flex items-center gap-3">
+              <FaDiscord className="h-6 w-6 text-[#5865F2]" />
+              <div>
+                <span className="text-sm font-medium">
+                  {userData?.discordLinked ? "Discord Linked" : "Discord"}
+                </span>
+                <div className="text-muted-foreground text-xs">
+                  {userData?.discordLinked && userData?.name && (
+                    <span>{userData.name}</span>
+                  )}
+                  {userData?.discordLinked && userData?.email && (
+                    <span className="ml-1">({userData.email})</span>
+                  )}
+                </div>
               </div>
-            )}
-
-            {passwordSuccess && (
-              <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-500">
-                <Check className="h-4 w-4" />
-                Password updated successfully
-              </div>
-            )}
-
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={
-                  updatePasswordMutation.isPending || !canUpdatePassword
-                }
-              >
-                {updatePasswordMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
-                    Updating...
-                  </>
-                ) : (
-                  "Update Password"
-                )}
-              </Button>
             </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* DANGER ZONE SECTION */}
-      <Card className="border-destructive">
-        <CardHeader>
-          <CardTitle className="text-destructive flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            Danger Zone
-          </CardTitle>
-          <CardDescription>Irreversible account actions.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="border-destructive/20 bg-destructive/5 rounded-lg border p-4">
-            <div className="flex items-start gap-4">
-              <Ban className="text-destructive mt-0.5 h-5 w-5 shrink-0" />
-              <div className="space-y-2">
-                <h3 className="font-medium">Delete your account</h3>
-                <p className="text-muted-foreground text-sm">
-                  This will permanently delete your Jellyfin user account. This
-                  action cannot be undone.
-                </p>
-
-                <AlertDialog
-                  open={isDeleteDialogOpen}
-                  onOpenChange={setIsDeleteDialogOpen}
-                >
-                  <AlertDialogTrigger asChild>
+            <div className="flex items-center gap-2">
+              {userData?.discordLinked ? (
+                <UnlinkProviderDialog
+                  provider="discord"
+                  onConfirm={handleUnlinkDiscord}
+                  isPending={
+                    unlinkProviderMutation.isPending &&
+                    unlinkProviderMutation.variables?.provider === "discord"
+                  }
+                  error={unlinkError}
+                  trigger={
                     <Button
                       variant="destructive"
                       size="sm"
-                      disabled={deleteAccountMutation.isPending}
+                      disabled={unlinkProviderMutation.isPending}
                     >
-                      {deleteAccountMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
-                          Deleting...
-                        </>
+                      {unlinkProviderMutation.isPending &&
+                      unlinkProviderMutation.variables?.provider ===
+                        "discord" ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
-                        "Delete Account"
+                        <Link2Off className="mr-2 h-4 w-4" />
                       )}
+                      Unlink
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        Are you absolutely sure?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently
-                        delete your Jellyfin account.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    {deleteError && (
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Error Deleting Account</AlertTitle>
-                        <AlertDescription>{deleteError}</AlertDescription>
-                      </Alert>
-                    )}
-                    <AlertDialogFooter>
-                      <AlertDialogCancel
-                        disabled={deleteAccountMutation.isPending}
-                      >
-                        Cancel
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleAccountDelete}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        disabled={deleteAccountMutation.isPending}
-                      >
-                        {deleteAccountMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
-                            Deleting...
-                          </>
-                        ) : (
-                          "Delete Account"
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+                  }
+                />
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => signIn("discord", { callbackUrl: "/account" })}
+                >
+                  <LinkIcon className="mr-2 h-4 w-4" /> Link Discord
+                </Button>
+              )}
             </div>
           </div>
+
+          {/* --- Email Link Status/Action --- */}
+          {userData?.linkedEmail ? (
+            <div className="flex items-center justify-between rounded-lg border p-2">
+              <div className="flex items-center gap-3">
+                <Mail className="text-muted-foreground h-6 w-6" />
+                <div className="text-sm">
+                  <span className="font-medium">Email Linked: </span>
+                  <span className="text-muted-foreground">
+                    {userData.linkedEmail}
+                  </span>
+                </div>
+              </div>
+              <UnlinkProviderDialog
+                provider="email"
+                onConfirm={handleUnlinkEmail}
+                isPending={
+                  unlinkProviderMutation.isPending &&
+                  unlinkProviderMutation.variables?.provider === "resend"
+                }
+                error={unlinkError}
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={unlinkProviderMutation.isPending}
+                  >
+                    {unlinkProviderMutation.isPending &&
+                    unlinkProviderMutation.variables?.provider === "resend" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Link2Off className="mr-2 h-4 w-4" />
+                    )}
+                    Unlink
+                  </Button>
+                }
+              />
+            </div>
+          ) : (
+            // Email Linking Form
+            <form
+              onSubmit={handleLinkEmailSubmit}
+              className="space-y-3 rounded-lg border p-3"
+            >
+              <h3 className="flex items-center gap-2 text-sm font-medium">
+                <Mail className="text-muted-foreground h-6 w-6" />
+                Link Email Address (Magic Link)
+              </h3>
+              {linkEmailError && (
+                <Alert variant="destructive" className="mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Linking Error</AlertTitle>
+                  <AlertDescription>{linkEmailError}</AlertDescription>
+                </Alert>
+              )}
+              {linkEmailSuccess && !linkEmailLoading && (
+                <Alert
+                  variant="default"
+                  className="mt-2 border-green-500 text-green-700 dark:border-green-600 dark:text-green-500 [&>svg]:text-green-700 dark:[&>svg]:text-green-500"
+                >
+                  <Check className="h-4 w-4" />
+                  <AlertTitle>Email Linked</AlertTitle>
+                  <AlertDescription>
+                    Your email address is now linked.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {linkEmailSuccess && linkEmailLoading && (
+                <Alert className="mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Check Your Email</AlertTitle>
+                  <AlertDescription>
+                    A login link has been sent to {linkEmail}. Click the link in
+                    the email to finish linking.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="grid gap-2">
+                <Label htmlFor="link-email">Email Address</Label>
+                <Input
+                  id="link-email"
+                  type="email"
+                  value={linkEmail}
+                  onChange={(e) => {
+                    setLinkEmail(e.target.value);
+                    setLinkEmailError(null);
+                    setLinkEmailSuccess(false);
+                  }}
+                  placeholder="you@example.com"
+                  disabled={linkEmailLoading}
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={linkEmailLoading || !linkEmail}
+              >
+                {linkEmailLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <LinkIcon className="mr-2 h-4 w-4" />
+                    Send Link
+                  </>
+                )}
+              </Button>
+            </form>
+          )}
+
+          {/* Jellyfin Link Status/Action/Form */}
+          {userData?.jellyfin ? (
+            <div className="flex items-center justify-between rounded-lg border p-2">
+              <div className="flex items-center gap-3">
+                <img
+                  src="/jellyfin.svg"
+                  alt="Jellyfin"
+                  className="h-6 w-6"
+                  style={{ background: "transparent" }}
+                />
+                <div className="text-sm">
+                  <span className="font-medium">Jellyfin Linked: </span>
+                  <span className="text-muted-foreground">
+                    {userData.jellyfin.username}
+                  </span>
+                  {userData.jellyfin.isAdmin && (
+                    <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                      Admin
+                    </span>
+                  )}
+                </div>
+              </div>
+              <UnlinkProviderDialog
+                provider="jellyfin"
+                onConfirm={handleUnlinkJellyfin}
+                isPending={
+                  unlinkProviderMutation.isPending &&
+                  unlinkProviderMutation.variables?.provider === "jellyfin"
+                }
+                error={unlinkError}
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={unlinkProviderMutation.isPending}
+                  >
+                    {unlinkProviderMutation.isPending &&
+                    unlinkProviderMutation.variables?.provider ===
+                      "jellyfin" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Link2Off className="mr-2 h-4 w-4" />
+                    )}
+                    Unlink
+                  </Button>
+                }
+              />
+            </div>
+          ) : (
+            // Jellyfin Linking Form
+            <form
+              onSubmit={handleLinkSubmit}
+              className="space-y-3 rounded-lg border p-3"
+            >
+              <h3 className="flex items-center gap-2 text-sm font-medium">
+                <img
+                  src="/jellyfin.svg"
+                  alt="Jellyfin"
+                  className="h-6 w-6"
+                  style={{ background: "transparent" }}
+                />
+                Link Existing Jellyfin Account
+              </h3>
+              {linkJfError && (
+                <Alert variant="destructive" className="mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Linking Error</AlertTitle>
+                  <AlertDescription>{linkJfError}</AlertDescription>
+                </Alert>
+              )}
+              <div className="grid gap-2">
+                <Label htmlFor="link-jf-username">Jellyfin Username</Label>
+                <Input
+                  id="link-jf-username"
+                  value={linkJfUsername}
+                  onChange={(e) => setLinkJfUsername(e.target.value)}
+                  placeholder="YourJellyfinUser"
+                  disabled={linkJellyfinMutation.isPending}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="link-jf-password">Jellyfin Password</Label>
+                <Input
+                  id="link-jf-password"
+                  type="password"
+                  value={linkJfPassword}
+                  onChange={(e) => setLinkJfPassword(e.target.value)}
+                  placeholder="••••••••"
+                  disabled={linkJellyfinMutation.isPending}
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={
+                  linkJellyfinMutation.isPending ||
+                  !linkJfUsername ||
+                  !linkJfPassword
+                }
+              >
+                {linkJellyfinMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                )}
+                Link Jellyfin Account
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
+
+      {/* --- Jellyfin Account Management (only shown if linked) --- */}
+      {userData?.jellyfin && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>Jellyfin Account Management</CardTitle>
+            <CardDescription>
+              Manage your linked Jellyfin user profile settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Username Update Form */}
+            <form onSubmit={handleUsernameUpdate} className="space-y-3">
+              <div className="grid gap-2">
+                <Label htmlFor="username">Jellyfin Username</Label>
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    setUsernameSuccess(false);
+                    setUsernameError(null);
+                  }}
+                  placeholder="Enter your username"
+                  disabled={updateUsernameMutation.isPending}
+                  maxLength={12}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Alphanumeric, 1-12 characters.
+                </p>
+                {usernameError && (
+                  <p className="text-destructive flex items-center gap-1 text-sm">
+                    <AlertCircle className="h-4 w-4" /> {usernameError}
+                  </p>
+                )}
+                {usernameSuccess && (
+                  <p className="flex items-center gap-1 text-sm text-green-600 dark:text-green-500">
+                    <Check className="h-4 w-4" /> Username updated successfully
+                  </p>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={
+                    updateUsernameMutation.isPending || !canUpdateUsername
+                  }
+                  size="sm"
+                >
+                  {updateUsernameMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Username"
+                  )}
+                </Button>
+              </div>
+            </form>
+
+            <Separator />
+
+            {/* Password Update Form */}
+            <form onSubmit={handlePasswordUpdate} className="space-y-3">
+              <div className="grid gap-2">
+                <Label htmlFor="current-password">Current Password</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => {
+                    setCurrentPassword(e.target.value);
+                    setPasswordSuccess(false);
+                    setPasswordError(null);
+                  }}
+                  disabled={updatePasswordMutation.isPending}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordSuccess(false);
+                    setPasswordError(null);
+                  }}
+                  maxLength={passwordValidation.MAX_LEN}
+                  disabled={updatePasswordMutation.isPending}
+                />
+              </div>
+              <PasswordRequirements password={newPassword} />
+              <div className="grid gap-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setPasswordSuccess(false);
+                    setPasswordError(null);
+                  }}
+                  maxLength={passwordValidation.MAX_LEN}
+                  disabled={updatePasswordMutation.isPending}
+                />
+              </div>
+              {passwordError && (
+                <div className="text-destructive flex items-center gap-1 text-sm">
+                  <AlertCircle className="h-4 w-4" /> {passwordError}
+                </div>
+              )}
+              {passwordSuccess && (
+                <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-500">
+                  <Check className="h-4 w-4" /> Password updated successfully
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={
+                    updatePasswordMutation.isPending || !canUpdatePassword
+                  }
+                  size="sm"
+                >
+                  {updatePasswordMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Password"
+                  )}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* --- Danger Zone --- */}
+      {userData?.jellyfin && (
+        <Card className="border-red-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-red-500">
+              <AlertTriangle className="h-5 w-5" /> Danger Zone
+            </CardTitle>
+            <CardDescription>
+              Actions that can have serious consequences. Proceed with caution.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h3 className="text-destructive flex items-center gap-1 text-sm font-medium">
+                  <Ban className="h-4 w-4" /> Delete Jellyfin Account
+                </h3>
+                <p className="text-muted-foreground text-xs">
+                  Permanently delete your Jellyfin account. This action cannot
+                  be undone.
+                </p>
+              </div>
+              <DeleteJellyfinAccountDialog
+                onConfirm={handleAccountDelete}
+                isPending={deleteAccountMutation.isPending}
+                error={deleteError}
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={deleteAccountMutation.isPending}
+                  >
+                    {deleteAccountMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Delete Account
+                  </Button>
+                }
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

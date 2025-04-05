@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,11 +22,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Loader2, Check } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { api } from "@/trpc/react";
 import type { Profile } from "@prisma/client";
 import type { AppRouter } from "@/server/api/root";
-import type { inferRouterOutputs, inferProcedureOutput } from "@trpc/server";
+import type { inferRouterOutputs } from "@trpc/server";
 import {
   Select,
   SelectContent,
@@ -44,11 +43,6 @@ const profileFormSchema = z.object({
   jellyfinTemplateUserId: z.string().optional(),
 });
 type ProfileFormData = z.infer<typeof profileFormSchema>;
-
-// Infer the profile type with invite count from the router output
-type ProfileWithInviteCountOutput = inferProcedureOutput<
-  AppRouter["profiles"]["list"]
->[number];
 
 // Interface based on the inferred type
 interface ProfileWithInviteCount extends Profile {
@@ -103,7 +97,7 @@ export function EditProfileDialog({
     updateMutation.mutate({
       id: profile.id,
       ...data,
-      jellyfinTemplateUserId: data.jellyfinTemplateUserId || undefined,
+      jellyfinTemplateUserId: data.jellyfinTemplateUserId ?? undefined,
     });
   }
 
@@ -130,7 +124,7 @@ export function EditProfileDialog({
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>
-            Update the details for the profile "{profile.name}".
+            Update the details for the profile &quot;{profile.name}&quot;.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

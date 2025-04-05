@@ -3,23 +3,18 @@ import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import jellyfinClient from "@/server/jellyfin";
 import type { UserDto } from "@jellyfin/sdk/lib/generated-client/models";
 
-// Define interfaces for better type checking
-interface UserWithAvatar {
+const DefinedUserWithAvatarSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  avatarUrl: z.string().optional(),
+});
+
+type UserWithAvatar = {
   id: string | null | undefined;
   name: string | null | undefined;
-  avatarUrl: string | undefined;
-}
-
-interface DefinedUserWithAvatar {
-  id: string;
-  name: string;
-  avatarUrl: string | undefined;
-}
-
-// Type guard function for filtering
-function isDefinedUser(user: UserWithAvatar): user is DefinedUserWithAvatar {
-  return typeof user.id === "string" && typeof user.name === "string";
-}
+  avatarUrl?: string;
+};
+type DefinedUserWithAvatar = z.infer<typeof DefinedUserWithAvatarSchema>;
 
 export const jellyfinRouter = createTRPCRouter({
   getAllUsers: publicProcedure.query(async () => {
@@ -46,7 +41,10 @@ export const jellyfinRouter = createTRPCRouter({
           avatarUrl: avatarUrl,
         };
       })
-      .filter(isDefinedUser);
+      .filter((user): user is DefinedUserWithAvatar => {
+        const result = DefinedUserWithAvatarSchema.safeParse(user);
+        return result.success;
+      });
 
     return usersWithAvatars;
   }),

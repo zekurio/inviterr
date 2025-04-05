@@ -48,11 +48,13 @@ export function DeleteProfileDialog({
         <DialogHeader>
           <DialogTitle>Delete Profile</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete the profile "{profile.name}"?
+            Are you sure you want to delete the profile &quot;{profile.name}
+            &quot;?
             {profile.inviteCount > 0 && (
               <span className="text-destructive mt-2 block">
-                This profile is linked to {profile.inviteCount} invite(s). You
-                cannot delete it.
+                This profile is linked to {profile.inviteCount}{" "}
+                {profile.inviteCount === 1 ? "invite" : "invites"}. You cannot
+                delete it.
               </span>
             )}
             {profile.isDefault && (

@@ -49,6 +49,30 @@ function RegisterPageContent() {
     },
   );
 
+  const incrementInviteUsage = api.invites.incrementUsage.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        console.log(
+          `Successfully incremented usage for invite code: ${inviteCode}`,
+        );
+        if (data.alreadyAtMax) {
+          console.warn(`Invite code ${inviteCode} was already at max usage.`);
+        }
+      } else {
+        console.error(
+          `Failed to increment usage for invite code: ${inviteCode}`,
+        );
+      }
+    },
+    onError: (error) => {
+      // Log error, but don't block user flow
+      console.error(
+        `Error incrementing usage for invite code ${inviteCode}:`,
+        error,
+      );
+    },
+  });
+
   // 1. Initial Check for Code in URL
   useEffect(() => {
     if (step === "initialCheck") {
@@ -111,6 +135,15 @@ function RegisterPageContent() {
   // Handler for RegisterForm success
   const handleJellyfinSuccess = (data: { id: string; username: string }) => {
     setJellyfinInfo(data);
+
+    // Increment invite usage *after* Jellyfin account is created
+    if (inviteCode) {
+      console.log(`Triggering usage increment for invite code: ${inviteCode}`);
+      incrementInviteUsage.mutate({ code: inviteCode });
+    } else {
+      console.warn("Cannot increment invite usage: inviteCode is missing.");
+    }
+
     setStep("linkAccount");
   };
 

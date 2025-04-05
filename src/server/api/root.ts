@@ -1,8 +1,8 @@
-import { createTRPCRouter } from "@/server/api/trpc";
-import { invitesRouter } from "@/server/api/routers/invites";
-import { profilesRouter } from "@/server/api/routers/profiles";
-import { jellyfinRouter } from "@/server/api/routers/jellyfin";
-import { accountsRouter } from "@/server/api/routers/accounts";
+import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
+import { invitesRouter } from "./routers/invites";
+import { profilesRouter } from "./routers/profiles";
+import { jellyfinRouter } from "./routers/jellyfin";
+import { accountsRouter } from "./routers/accounts";
 
 /**
  * This is the primary router for your server.
@@ -18,3 +18,12 @@ export const appRouter = createTRPCRouter({
 
 // export type definition of API
 export type AppRouter = typeof appRouter;
+
+/**
+ * Create a server-side caller for the tRPC API.
+ * @example
+ * const trpc = createCaller(createContext);
+ * const res = await trpc.post.all();
+ *       ^? Post[]
+ */
+export const createCaller = createCallerFactory(appRouter);

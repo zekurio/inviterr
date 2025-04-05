@@ -34,14 +34,14 @@ export function AccountLinkForm({
 
   const handleSignIn = async (
     provider: "discord" | "resend",
-    options?: Record<string, any>,
+    options?: Record<string, string>,
   ) => {
     setError(null);
     setIsEmailSent(false);
     setIsLoading(provider === "discord" ? "discord" : "email");
 
     // Construct the callback URL with Jellyfin info
-    const callbackUrl = `/finish-linking?jellyfinUserId=${encodeURIComponent(jellyfinUserId)}&jellyfinUsername=${encodeURIComponent(jellyfinUsername)}`;
+    const callbackUrl = `/link?jellyfinUserId=${encodeURIComponent(jellyfinUserId)}`;
 
     try {
       const result = await signIn(provider, {
@@ -87,10 +87,10 @@ export function AccountLinkForm({
     }
   };
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (email && !isLoading) {
-      handleSignIn("resend", { email });
+      await handleSignIn("resend", { email: email });
     }
   };
 
@@ -99,8 +99,8 @@ export function AccountLinkForm({
       <CardHeader className="text-center">
         <CardTitle className="text-xl">Link Your Account</CardTitle>
         <CardDescription>
-          Your Jellyfin account '{jellyfinUsername}' is created! Now link it
-          using Discord or Email to complete registration.
+          Your Jellyfin account &quot;{jellyfinUsername}&quot; is created! Now
+          link it using Discord or Email to complete registration.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">

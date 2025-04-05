@@ -65,7 +65,7 @@ export function EditInviteDialog({
   const maxUsesValue = form.watch("maxUses");
   // Show warning only if at least one field was touched and both are now empty
   const showWarning =
-    (touchedFields.expiresAt || touchedFields.maxUses) &&
+    (touchedFields.expiresAt ?? touchedFields.maxUses) &&
     !expiresAtValue &&
     !maxUsesValue;
 
@@ -101,7 +101,7 @@ export function EditInviteDialog({
     updateMutation.mutate({
       id: invite.id,
       ...data,
-      maxUses: data.maxUses || null, // Ensure empty string becomes null
+      maxUses: data.maxUses ?? null, // Ensure empty string becomes null
     });
   }
 
@@ -125,7 +125,7 @@ export function EditInviteDialog({
             <FormField
               control={form.control}
               name="expiresAt"
-              render={({ field }) => (
+              render={() => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Expires At (Optional)</FormLabel>
                   <Controller
