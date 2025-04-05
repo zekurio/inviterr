@@ -79,7 +79,6 @@ export function UnlinkProviderDialog({
           <AlertDialogAction
             onClick={() => {
               onConfirm();
-              // Dialog will close if mutation is successful due to parent state change/invalidation
             }}
             className="bg-destructive hover:bg-destructive/90"
             disabled={isPending}

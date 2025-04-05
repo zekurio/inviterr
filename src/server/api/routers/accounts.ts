@@ -124,8 +124,7 @@ export const accountsRouter = createTRPCRouter({
         let errorMessage = "An internal error occurred.";
         // Check for specific Jellyfin client errors if possible (structure depends on sdk)
         if (error?.response?.status === 400) {
-          errorMessage =
-            "Could not create Jellyfin user. The username might already exist or is invalid.";
+          errorMessage = "The username is taken or invalid.";
         }
         // Check for TRPCError specifically
         else if (error instanceof TRPCError) {

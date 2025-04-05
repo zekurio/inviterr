@@ -111,12 +111,6 @@ export function AccountView() {
   const [linkJfPassword, setLinkJfPassword] = useState("");
   const [linkJfError, setLinkJfError] = useState<string | null>(null);
 
-  // Link Email state
-  const [linkEmail, setLinkEmail] = useState("");
-  const [linkEmailError, setLinkEmailError] = useState<string | null>(null);
-  const [linkEmailLoading, setLinkEmailLoading] = useState(false);
-  const [linkEmailSuccess, setLinkEmailSuccess] = useState(false);
-
   // Unlink Provider state
   const [unlinkError, setUnlinkError] = useState<string | null>(null);
 
@@ -170,14 +164,6 @@ export function AccountView() {
     }
   }, [unlinkProviderMutation.isIdle, unlinkProviderMutation.isSuccess]);
 
-  // Reset email link form on user data change (e.g., after linking/unlinking)
-  useEffect(() => {
-    setLinkEmail("");
-    setLinkEmailError(null);
-    setLinkEmailSuccess(false);
-    setLinkEmailLoading(false);
-  }, [userData?.linkedEmail]);
-
   // --- Event Handlers --- //
   const handleUsernameUpdate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,55 +214,6 @@ export function AccountView() {
     });
   };
 
-  // Handler for linking email account
-  const handleLinkEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLinkEmailError(null);
-    setLinkEmailSuccess(false);
-    if (!linkEmail) {
-      setLinkEmailError("Email address is required.");
-      return;
-    }
-    // Basic email format check (consider a more robust library if needed)
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(linkEmail)) {
-      setLinkEmailError("Please enter a valid email address.");
-      return;
-    }
-
-    setLinkEmailLoading(true);
-    try {
-      const result = await signIn("resend", {
-        email: linkEmail,
-        redirect: false, // Don't redirect, stay on the page
-        callbackUrl: window.location.pathname, // Or specific page if needed
-      });
-
-      if (result?.error) {
-        // Handle potential errors from NextAuth/Resend
-        console.error("Email Sign In Error:", result.error);
-        setLinkEmailError(
-          result.error === "CredentialsSignin" // Example check, adjust as needed
-            ? "Failed to send link. Please check the email and try again."
-            : "An unexpected error occurred.",
-        );
-        setLinkEmailLoading(false);
-      } else if (result?.ok) {
-        // OK means email was sent (or attempted)
-        setLinkEmailSuccess(true);
-        // Keep loading true to disable form until user clicks link or page reloads
-      } else {
-        // Handle other unexpected cases
-        setLinkEmailError("An unknown error occurred while sending the link.");
-        setLinkEmailLoading(false);
-      }
-    } catch (error) {
-      console.error("Sign in error:", error);
-      setLinkEmailError("An unexpected error occurred.");
-      setLinkEmailLoading(false);
-    }
-    // Don't setLinkEmailLoading(false) on success, keep form disabled
-  };
-
   // Specific handler for deleting the Jellyfin account
   const handleAccountDelete = () => {
     setDeleteError(null);
@@ -293,12 +230,6 @@ export function AccountView() {
   const handleUnlinkJellyfin = () => {
     setUnlinkError(null);
     unlinkProviderMutation.mutate({ provider: "jellyfin" });
-  };
-
-  // Specific handler for unlinking Email
-  const handleUnlinkEmail = () => {
-    setUnlinkError(null);
-    unlinkProviderMutation.mutate({ provider: "resend" });
   };
 
   // --- Derived State --- //
@@ -517,118 +448,6 @@ export function AccountView() {
               )}
             </div>
           </div>
-
-          {/* --- Email Link Status/Action --- */}
-          {userData?.linkedEmail ? (
-            <div className="flex items-center justify-between rounded-lg border p-2">
-              <div className="flex items-center gap-3">
-                <Mail className="text-muted-foreground h-6 w-6" />
-                <div className="text-sm">
-                  <span className="font-medium">Email Linked: </span>
-                  <span className="text-muted-foreground">
-                    {userData.linkedEmail}
-                  </span>
-                </div>
-              </div>
-              <UnlinkProviderDialog
-                provider="email"
-                onConfirm={handleUnlinkEmail}
-                isPending={
-                  unlinkProviderMutation.isPending &&
-                  unlinkProviderMutation.variables?.provider === "resend"
-                }
-                error={unlinkError}
-                trigger={
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={unlinkProviderMutation.isPending}
-                  >
-                    {unlinkProviderMutation.isPending &&
-                    unlinkProviderMutation.variables?.provider === "resend" ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Link2Off className="mr-2 h-4 w-4" />
-                    )}
-                    Unlink
-                  </Button>
-                }
-              />
-            </div>
-          ) : (
-            // Email Linking Form
-            <form
-              onSubmit={handleLinkEmailSubmit}
-              className="space-y-3 rounded-lg border p-3"
-            >
-              <h3 className="flex items-center gap-2 text-sm font-medium">
-                <Mail className="text-muted-foreground h-6 w-6" />
-                Link Email Address (Magic Link)
-              </h3>
-              {linkEmailError && (
-                <Alert variant="destructive" className="mt-2">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Linking Error</AlertTitle>
-                  <AlertDescription>{linkEmailError}</AlertDescription>
-                </Alert>
-              )}
-              {linkEmailSuccess && !linkEmailLoading && (
-                <Alert
-                  variant="default"
-                  className="mt-2 border-green-500 text-green-700 dark:border-green-600 dark:text-green-500 [&>svg]:text-green-700 dark:[&>svg]:text-green-500"
-                >
-                  <Check className="h-4 w-4" />
-                  <AlertTitle>Email Linked</AlertTitle>
-                  <AlertDescription>
-                    Your email address is now linked.
-                  </AlertDescription>
-                </Alert>
-              )}
-              {linkEmailSuccess && linkEmailLoading && (
-                <Alert className="mt-2">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Check Your Email</AlertTitle>
-                  <AlertDescription>
-                    A login link has been sent to {linkEmail}. Click the link in
-                    the email to finish linking.
-                  </AlertDescription>
-                </Alert>
-              )}
-              <div className="grid gap-2">
-                <Label htmlFor="link-email">Email Address</Label>
-                <Input
-                  id="link-email"
-                  type="email"
-                  value={linkEmail}
-                  onChange={(e) => {
-                    setLinkEmail(e.target.value);
-                    setLinkEmailError(null);
-                    setLinkEmailSuccess(false);
-                  }}
-                  placeholder="you@example.com"
-                  disabled={linkEmailLoading}
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={linkEmailLoading || !linkEmail}
-              >
-                {linkEmailLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <LinkIcon className="mr-2 h-4 w-4" />
-                    Send Link
-                  </>
-                )}
-              </Button>
-            </form>
-          )}
 
           {/* Jellyfin Link Status/Action/Form */}
           {userData?.jellyfin ? (

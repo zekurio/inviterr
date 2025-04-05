@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useSession, signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,9 +14,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { FaDiscord } from "react-icons/fa";
-import { signIn } from "next-auth/react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle } from "lucide-react";
+import { AccountsLinkedDialog } from "@/components/dialogs/accounts-linked";
 
 interface AccountLinkFormProps {
   jellyfinUserId: string;
@@ -25,29 +27,27 @@ export function AccountLinkForm({
   jellyfinUserId,
   jellyfinUsername,
 }: AccountLinkFormProps) {
-  const [email, setEmail] = useState("");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus } = useSession();
+
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<"discord" | "email" | false>(
     false,
   );
-  const [isEmailSent, setIsEmailSent] = useState(false); // Track if magic link is sent
+  const [isLinkSuccess, setIsLinkSuccess] = useState(false);
 
   const handleSignIn = async (
     provider: "discord" | "resend",
     options?: Record<string, string>,
   ) => {
     setError(null);
-    setIsEmailSent(false);
     setIsLoading(provider === "discord" ? "discord" : "email");
-
-    // Construct the callback URL with Jellyfin info
-    const callbackUrl = `/link?jellyfinUserId=${encodeURIComponent(jellyfinUserId)}`;
 
     try {
       const result = await signIn(provider, {
         ...options,
-        callbackUrl: callbackUrl,
-        redirect: provider === "discord", // Redirect immediately for Discord
+        redirect: false,
       });
 
       // For Resend (email), signIn doesn't redirect automatically if successful,
@@ -59,8 +59,6 @@ export function AccountLinkForm({
               "Failed to send login email. Please check the email address and try again.",
           );
         } else if (result?.ok) {
-          // OK means email was sent (or attempted)
-          setIsEmailSent(true);
           // Don't clear loading here, keep form disabled until user clicks link
         } else {
           setError(
@@ -68,10 +66,9 @@ export function AccountLinkForm({
           );
         }
       } else if (result?.error) {
-        // Handle errors for Discord redirect
+        // Handle errors for Discord redirect or Resend errors
         setError(result.error ?? `Failed to sign in with ${provider}.`);
       }
-      // If Discord sign-in was initiated successfully, the redirect should happen automatically.
     } catch (err) {
       console.error("Sign in error:", err);
       setError("An unexpected error occurred during sign in.");
@@ -80,19 +77,26 @@ export function AccountLinkForm({
       if (provider === "resend" && error) {
         setIsLoading(false);
       }
-      // For discord, loading stops implicitly on redirect or explicitly on error
+      // For discord, stop loading on error. Success is handled by page reload.
       if (provider === "discord" && error) {
         setIsLoading(false);
       }
     }
   };
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email && !isLoading) {
-      await handleSignIn("resend", { email: email });
+  // Effect to check for successful link after redirect
+  useEffect(() => {
+    const redirectedJellyfinId = searchParams.get("jellyfinUserId");
+    // Check if authenticated and the URL contains the jellyfinUserId from the callback
+    if (
+      sessionStatus === "authenticated" &&
+      redirectedJellyfinId === jellyfinUserId
+    ) {
+      setIsLinkSuccess(true);
+      // Optional: Clean the URL param to prevent dialog showing on refresh
+      // window.history.replaceState(null, '', pathname);
     }
-  };
+  }, [sessionStatus, searchParams, jellyfinUserId, pathname]);
 
   return (
     <Card>
@@ -100,7 +104,7 @@ export function AccountLinkForm({
         <CardTitle className="text-xl">Link Your Account</CardTitle>
         <CardDescription>
           Your Jellyfin account &quot;{jellyfinUsername}&quot; is created! Now
-          link it using Discord or Email to complete registration.
+          link it using one of the following methods.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">
@@ -111,24 +115,13 @@ export function AccountLinkForm({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {isEmailSent && (
-          <Alert>
-            <CheckCircle className="h-4 w-4" />
-            <AlertTitle>Check Your Email</AlertTitle>
-            <AlertDescription>
-              A login link has been sent to {email}. Click the link in the email
-              to complete your registration. You can close this window.
-            </AlertDescription>
-          </Alert>
-        )}
-
         {/* Discord Button */}
         <Button
           variant="outline"
           className="w-full"
           onClick={() => handleSignIn("discord")}
           type="button"
-          disabled={!!isLoading || isEmailSent} // Disable if any operation is in progress or email sent
+          disabled={isLoading === "discord" || isLinkSuccess}
         >
           {isLoading === "discord" ? (
             "Redirecting..."
@@ -139,37 +132,12 @@ export function AccountLinkForm({
             </>
           )}
         </Button>
-
-        {/* Separator */}
-        <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
-          <span className="bg-card text-muted-foreground relative z-10 px-2">
-            Or link with Email
-          </span>
-        </div>
-
-        {/* Email Form */}
-        <form onSubmit={handleEmailSubmit} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={!!isLoading || isEmailSent}
-            />
-          </div>
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={!email || !!isLoading || isEmailSent}
-          >
-            {isLoading === "email" ? "Sending Link..." : "Send Magic Link"}
-          </Button>
-        </form>
       </CardContent>
+      <AccountsLinkedDialog
+        open={isLinkSuccess}
+        onOpenChange={setIsLinkSuccess}
+        jellyfinUrl={process.env.NEXT_PUBLIC_JELLYFIN_URL ?? "/"}
+      />
     </Card>
   );
 }

@@ -27,12 +27,6 @@ export function LoginForm({
   const [jellyfinError, setJellyfinError] = useState<string | null>(null);
   const [isJellyfinLoading, setIsJellyfinLoading] = useState(false);
 
-  // State for Resend email login
-  const [email, setEmail] = useState("");
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [isEmailLoading, setIsEmailLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-
   // State for general/Discord errors from URL
   const [urlError, setUrlError] = useState<string | null>(null);
 
@@ -45,13 +39,8 @@ export function LoginForm({
     if (errorParam) {
       // Reset specific form errors if a URL error occurs
       setJellyfinError(null);
-      setEmailError(null);
 
-      if (errorParam === "JellyfinAccountNotLinked") {
-        setUrlError(
-          "Jellyfin login failed: This Jellyfin account is not linked to a user in this application. Please log in with Discord or Email first.",
-        );
-      } else if (errorParam === "CredentialsSignin") {
+      if (errorParam === "CredentialsSignin") {
         // Set the specific Jellyfin error for this case
         setJellyfinError("Invalid username or password.");
       } else {
@@ -67,7 +56,6 @@ export function LoginForm({
   const handleJellyfinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setJellyfinError(null);
-    setEmailError(null); // Clear other errors
     setUrlError(null);
     setIsJellyfinLoading(true);
 
@@ -99,45 +87,6 @@ export function LoginForm({
     }
   };
 
-  // Handler for Resend Email Submit
-  const handleEmailSignIn = async (e: React.FormEvent) => {
-    e.preventDefault(); // Prevent default form submission
-    setEmailError(null);
-    setJellyfinError(null); // Clear other errors
-    setUrlError(null);
-    setEmailSent(false);
-    setIsEmailLoading(true);
-
-    try {
-      const result = await signIn("resend", {
-        email,
-        redirect: false, // Don't redirect, just send the email
-      });
-
-      if (result?.error) {
-        setEmailError(
-          result.error ?? "Failed to send login email. Please try again.",
-        );
-      } else if (result?.ok) {
-        setEmailSent(true);
-        // Keep loading true to disable form while waiting for user click
-        return; // Prevent finally block from setting loading false
-      } else {
-        setEmailError("An unexpected error occurred sending the email.");
-      }
-    } catch (error) {
-      console.error("Resend Signin Exception:", error);
-      setEmailError("An unexpected error occurred. Please try again.");
-    } finally {
-      // Only stop loading if email wasn't successfully sent
-      if (!emailSent) {
-        setIsEmailLoading(false);
-      }
-    }
-  };
-
-  const anyLoading = isJellyfinLoading || isEmailLoading;
-
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -168,58 +117,11 @@ export function LoginForm({
                 })
               }
               type="button"
-              disabled={anyLoading}
+              disabled={isJellyfinLoading}
             >
               <FaDiscord className="mr-2 h-4 w-4" />
               Login with Discord
             </Button>
-
-            {/* Separator for Email */}
-            <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
-              <span className="bg-card text-muted-foreground relative z-10 px-2">
-                Or with Email
-              </span>
-            </div>
-
-            {/* Email Form */}
-            <form onSubmit={handleEmailSignIn} className="grid gap-4">
-              {emailSent && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertTitle>Check Your Email</AlertTitle>
-                  <AlertDescription>
-                    A magic link has been sent to {email}. Click the link to log
-                    in.
-                  </AlertDescription>
-                </Alert>
-              )}
-              {emailError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Email Login Error</AlertTitle>
-                  <AlertDescription>{emailError}</AlertDescription>
-                </Alert>
-              )}
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={anyLoading || emailSent}
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={!email || anyLoading || emailSent}
-              >
-                {isEmailLoading ? "Sending Link..." : "Send Magic Link"}
-              </Button>
-            </form>
 
             {/* Separator for Jellyfin Credentials */}
             <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
@@ -246,7 +148,7 @@ export function LoginForm({
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  disabled={anyLoading || emailSent}
+                  disabled={isJellyfinLoading}
                 />
               </div>
               <div className="grid gap-2">
@@ -266,13 +168,13 @@ export function LoginForm({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={anyLoading || emailSent}
+                  disabled={isJellyfinLoading}
                 />
               </div>
               <Button
                 type="submit"
                 className="w-full"
-                disabled={!username || !password || anyLoading || emailSent}
+                disabled={!username || !password || isJellyfinLoading}
               >
                 {isJellyfinLoading ? "Logging in..." : "Login with Jellyfin"}
               </Button>

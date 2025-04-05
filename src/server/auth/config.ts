@@ -4,19 +4,11 @@ import {
   type NextAuthConfig,
   type User as NextAuthUser,
 } from "next-auth";
-import type { Provider } from "next-auth/providers";
 import DiscordProvider from "next-auth/providers/discord";
-import ResendProvider from "next-auth/providers/resend";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/server/db";
 import jellyfinClient from "@/server/jellyfin";
 import { z } from "zod";
-import { env } from "@/env";
-
-// Imports for custom email
-import { Resend } from "resend";
-import { render } from "@react-email/render";
-import MagicLinkEmail from "@/emails/magic-link"; // Import the template
 
 // Custom error class for unlinked accounts
 class JellyfinAccountNotLinkedError extends Error {
@@ -64,52 +56,11 @@ declare module "next-auth" {
   }
 }
 
-// Initialize Resend client
-const resend = new Resend(env.AUTH_RESEND_KEY);
-
-// Custom function to send verification emails
-async function sendVerificationRequest(params: {
-  identifier: string;
-  url: string;
-  provider: Omit<Provider, "type"> & { type: "email" };
-  // theme: Theme; // Theme object might be available depending on NextAuth version/setup
-}) {
-  const { identifier, url /*, provider */ } = params; // Remove unused provider from destructuring
-  const { host } = new URL(url);
-
-  // Define the 'from' address directly (must match the one configured in ResendProvider)
-  const fromAddress = "no-reply@transactional.zekurio.xyz";
-
-  try {
-    const emailHtml = render(MagicLinkEmail({ url, host }));
-
-    await resend.emails.send({
-      from: fromAddress, // Use the directly defined address
-      to: identifier,
-      subject: `Log in to ${host}`, // Customize subject
-      html: emailHtml,
-    });
-    console.log(`Verification email sent successfully to: ${identifier}`);
-  } catch (error) {
-    console.error("Failed to send verification email:", error);
-    // You might want to throw a specific error or handle it differently
-    throw new Error(
-      `Failed to send verification email. ${error instanceof Error ? error.message : ""}`,
-    );
-  }
-}
-
 /**
  * Options for NextAuth.js
  */
 export const authConfig = {
   providers: [
-    ResendProvider({
-      apiKey: env.AUTH_RESEND_KEY,
-      from: "no-reply@transactional.zekurio.xyz", // Keep this as the default sender
-      // Add the custom send function
-      sendVerificationRequest,
-    }),
     DiscordProvider,
     CredentialsProvider({
       name: "Jellyfin",
