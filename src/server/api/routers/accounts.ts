@@ -9,7 +9,6 @@ import type {
   UserDto,
   UpdateUserPassword,
 } from "@jellyfin/sdk/lib/generated-client/models";
-import jellyfinClient from "@/server/jellyfin"; // Import the Jellyfin client
 
 // Input validation schema for account creation
 const createAccountSchema = z.object({
@@ -169,11 +168,11 @@ export const accountsRouter = createTRPCRouter({
           where: { userId: userId },
         }),
         ctx.db.account.findFirst({
-          where: { userId: userId, provider: "discord" },
+          where: { userId: userId, providerId: "discord" },
         }),
         // Check for an account linked via 'resend' provider
         ctx.db.account.findFirst({
-          where: { userId: userId, provider: "resend" },
+          where: { userId: userId, providerId: "resend" },
           include: { user: true }, // Include user to get email
         }),
       ]);
@@ -184,9 +183,11 @@ export const accountsRouter = createTRPCRouter({
           `[getCurrentUser] Found Jellyfin link for user ${userId}: JF ID ${jellyfinLink.jellyfinUserId}`,
         );
         try {
-          const jellyfinUserInfo = await jellyfinClient.userApi.getUserById({
-            userId: jellyfinLink.jellyfinUserId,
-          });
+          const jellyfinUserInfo = await ctx.jellyfinClient.userApi.getUserById(
+            {
+              userId: jellyfinLink.jellyfinUserId,
+            },
+          );
           if (jellyfinUserInfo.data) {
             jellyfinDetails = {
               id: jellyfinLink.jellyfinUserId,
@@ -296,10 +297,11 @@ export const accountsRouter = createTRPCRouter({
       // 2. Authenticate with Jellyfin
       let jellyfinAuthResponse;
       try {
-        jellyfinAuthResponse = await jellyfinClient.api.authenticateUserByName(
-          input.username,
-          input.password,
-        );
+        jellyfinAuthResponse =
+          await ctx.jellyfinClient.api.authenticateUserByName(
+            input.username,
+            input.password,
+          );
 
         if (
           !jellyfinAuthResponse.data?.User?.Id ||
@@ -388,7 +390,7 @@ export const accountsRouter = createTRPCRouter({
         if (provider === "discord") {
           // Find the account link
           const accountLink = await ctx.db.account.findFirst({
-            where: { userId: userId, provider: "discord" },
+            where: { userId: userId, providerId: "discord" },
           });
           if (!accountLink) {
             throw new TRPCError({
@@ -396,14 +398,9 @@ export const accountsRouter = createTRPCRouter({
               message: "Discord account not linked.",
             });
           }
-          // Delete the link
+          // Delete the link using its primary id
           await ctx.db.account.delete({
-            where: {
-              provider_providerAccountId: {
-                provider: "discord",
-                providerAccountId: accountLink.providerAccountId,
-              },
-            },
+            where: { id: accountLink.id },
           });
           console.log(
             `[unlinkProvider] Successfully unlinked Discord for user ${userId}`,
@@ -429,7 +426,7 @@ export const accountsRouter = createTRPCRouter({
         } else if (provider === "resend") {
           // Find the email account link
           const accountLink = await ctx.db.account.findFirst({
-            where: { userId: userId, provider: "resend" },
+            where: { userId: userId, providerId: "resend" },
           });
           if (!accountLink) {
             throw new TRPCError({
@@ -441,12 +438,7 @@ export const accountsRouter = createTRPCRouter({
           // Note: This deletes the *link* (Account record), not the User record itself.
           // The user's email might still exist on the User record if they logged in with it before.
           await ctx.db.account.delete({
-            where: {
-              provider_providerAccountId: {
-                provider: "resend",
-                providerAccountId: accountLink.providerAccountId, // Email is the providerAccountId for resend
-              },
-            },
+            where: { id: accountLink.id },
           });
           console.log(
             `[unlinkProvider] Successfully unlinked Email (Resend) for user ${userId}`,

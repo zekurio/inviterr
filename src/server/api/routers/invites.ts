@@ -204,7 +204,13 @@ export const invitesRouter = createTRPCRouter({
       const invite = await ctx.db.invite.findUnique({
         where: { code: input.code },
         include: {
-          profile: true,
+          profile: {
+            include: {
+              jellyfinUser: {
+                select: { id: true, username: true, jellyfinUserId: true },
+              },
+            },
+          },
         },
       });
 

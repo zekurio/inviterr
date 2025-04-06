@@ -5,13 +5,13 @@ import crypto from "crypto";
 
 const createProfileSchema = z.object({
   name: z.string(),
-  jellyfinTemplateUserId: z.string().optional(),
+  jellyfinUserId: z.string(),
 });
 
 const updateProfileSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
-  jellyfinTemplateUserId: z.string().optional(),
+  jellyfinUserId: z.string().optional(),
 });
 
 export const profilesRouter = createTRPCRouter({
@@ -26,7 +26,10 @@ export const profilesRouter = createTRPCRouter({
     const profiles = await ctx.db.profile.findMany({
       include: {
         _count: {
-          select: { Invite: true },
+          select: { invites: true },
+        },
+        jellyfinUser: {
+          select: { id: true, username: true, jellyfinUserId: true },
         },
       },
       orderBy: {
@@ -36,7 +39,7 @@ export const profilesRouter = createTRPCRouter({
 
     return profiles.map((p) => ({
       ...p,
-      inviteCount: p._count.Invite,
+      inviteCount: p._count.invites,
     }));
   }),
 
@@ -53,7 +56,10 @@ export const profilesRouter = createTRPCRouter({
       const profile = await ctx.db.profile.findUnique({
         where: { id: input.id },
         include: {
-          Invite: true,
+          invites: true,
+          jellyfinUser: {
+            select: { id: true, username: true, jellyfinUserId: true },
+          },
         },
       });
 
@@ -77,6 +83,17 @@ export const profilesRouter = createTRPCRouter({
         });
       }
 
+      const jellyfinUserExists = await ctx.db.jellyfinUser.findUnique({
+        where: { id: input.jellyfinUserId },
+      });
+
+      if (!jellyfinUserExists) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Jellyfin user link not found for ID: ${input.jellyfinUserId}`,
+        });
+      }
+
       const existingProfile = await ctx.db.profile.findFirst({
         where: { name: input.name },
       });
@@ -91,7 +108,12 @@ export const profilesRouter = createTRPCRouter({
       const profile = await ctx.db.profile.create({
         data: {
           name: input.name,
-          jellyfinTemplateUserId: input.jellyfinTemplateUserId,
+          jellyfinUserId: input.jellyfinUserId,
+        },
+        include: {
+          jellyfinUser: {
+            select: { id: true, username: true, jellyfinUserId: true },
+          },
         },
       });
 
@@ -108,7 +130,7 @@ export const profilesRouter = createTRPCRouter({
         });
       }
 
-      const updateData: Record<string, unknown> = {};
+      const updateData: { name?: string; jellyfinUserId?: string } = {};
 
       if (input.name !== undefined) {
         const existingProfile = await ctx.db.profile.findFirst({
@@ -126,13 +148,27 @@ export const profilesRouter = createTRPCRouter({
         updateData.name = input.name;
       }
 
-      if (input.jellyfinTemplateUserId !== undefined) {
-        updateData.jellyfinTemplateUserId = input.jellyfinTemplateUserId;
+      if (input.jellyfinUserId !== undefined) {
+        const jellyfinUserExists = await ctx.db.jellyfinUser.findUnique({
+          where: { id: input.jellyfinUserId },
+        });
+        if (!jellyfinUserExists) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Jellyfin user link not found for ID: ${input.jellyfinUserId}`,
+          });
+        }
+        updateData.jellyfinUserId = input.jellyfinUserId;
       }
 
       const profile = await ctx.db.profile.update({
         where: { id: input.id },
         data: updateData,
+        include: {
+          jellyfinUser: {
+            select: { id: true, username: true, jellyfinUserId: true },
+          },
+        },
       });
 
       return profile;
@@ -150,11 +186,6 @@ export const profilesRouter = createTRPCRouter({
 
       const profile = await ctx.db.profile.findUnique({
         where: { id: input.id },
-        include: {
-          _count: {
-            select: { Invite: true },
-          },
-        },
       });
 
       if (!profile) {
@@ -169,13 +200,6 @@ export const profilesRouter = createTRPCRouter({
           code: "BAD_REQUEST",
           message:
             "Cannot delete the default profile. Set another profile as default first.",
-        });
-      }
-
-      if (profile._count.Invite > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Cannot delete profile as it is used by ${profile._count.Invite} invite(s)`,
         });
       }
 
@@ -229,33 +253,34 @@ export const profilesRouter = createTRPCRouter({
         });
       }
 
-      const profile = await ctx.db.profile.findUnique({
-        where: { id: input.id },
+      const invites = await ctx.db.invite.findMany({
+        where: { profileId: input.id },
         include: {
-          Invite: {
-            include: {
-              createdBy: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-            orderBy: {
-              createdAt: "desc",
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
             },
           },
         },
+        orderBy: {
+          createdAt: "desc",
+        },
       });
 
-      if (!profile) {
+      const profileExists = await ctx.db.profile.findUnique({
+        where: { id: input.id },
+        select: { id: true },
+      });
+
+      if (!profileExists) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Profile not found.",
         });
       }
 
-      return profile.Invite;
+      return invites;
     }),
 
   createInvite: protectedProcedure

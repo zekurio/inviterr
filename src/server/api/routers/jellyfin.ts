@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
-import jellyfinClient from "@/server/jellyfin";
 import type { UserDto } from "@jellyfin/sdk/lib/generated-client/models";
 
 const DefinedUserWithAvatarSchema = z.object({
@@ -17,8 +16,8 @@ type UserWithAvatar = {
 type DefinedUserWithAvatar = z.infer<typeof DefinedUserWithAvatarSchema>;
 
 export const jellyfinRouter = createTRPCRouter({
-  getAllUsers: publicProcedure.query(async () => {
-    const { userApi, imageApi } = jellyfinClient;
+  getAllUsers: publicProcedure.query(async ({ ctx }) => {
+    const { userApi, imageApi } = ctx.jellyfinClient;
     const usersResponse = await userApi.getUsers();
 
     if (!usersResponse.data) {
