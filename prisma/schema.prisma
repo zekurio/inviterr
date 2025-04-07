@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -20,7 +21,16 @@ model User {
   invites       Invite[]      @relation("UserInvites")
   jellyfinUser  JellyfinUser?
 
+  username        String?
+  displayUsername String?
+
+  role       String?
+  banned     Boolean?
+  banReason  String?
+  banExpires DateTime?
+
   @@map("user")
+  @@unique([username])
 }
 
 model Session {
@@ -33,6 +43,8 @@ model Session {
   userAgent String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  impersonatedBy String?
 
   @@map("session")
 }
@@ -85,23 +97,23 @@ model Invite {
 }
 
 model Profile {
-  id                     String    @id @default(cuid())
-  name                   String?
-  isDefault              Boolean   @default(false)
-  invites                Invite[]  @relation("ProfileInvites")
-  jellyfinUser           JellyfinUser @relation(fields: [jellyfinUserId], references: [id], onDelete: Cascade)
-  jellyfinUserId         String
+  id             String       @id @default(cuid())
+  name           String?
+  isDefault      Boolean      @default(false)
+  invites        Invite[]     @relation("ProfileInvites")
+  jellyfinUser   JellyfinUser @relation(fields: [jellyfinUserId], references: [id], onDelete: Cascade)
+  jellyfinUserId String
 
   @@map("profiles")
 }
 
 model JellyfinUser {
-  id             String  @id @default(cuid())
-  jellyfinUserId String  @unique
+  id             String    @id @default(cuid())
+  jellyfinUserId String    @unique
   username       String
-  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId         String  @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String    @unique
   profiles       Profile[]
-  
+
   @@map("jellyfin_users")
 }

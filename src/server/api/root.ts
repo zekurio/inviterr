@@ -1,20 +1,11 @@
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
-import { invitesRouter } from "./routers/invites";
-import { profilesRouter } from "./routers/profiles";
-import { jellyfinRouter } from "./routers/jellyfin";
-import { accountsRouter } from "./routers/accounts";
 
 /**
  * This is the primary router for your server.
  *
  * All routers added in /api/routers should be manually added here.
  */
-export const appRouter = createTRPCRouter({
-  invites: invitesRouter,
-  profiles: profilesRouter,
-  jellyfin: jellyfinRouter,
-  accounts: accountsRouter,
-});
+export const appRouter = createTRPCRouter({});
 
 // export type definition of API
 export type AppRouter = typeof appRouter;

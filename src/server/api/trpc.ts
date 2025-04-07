@@ -12,7 +12,7 @@ import { ZodError } from "zod";
 
 import { db } from "@/server/db";
 import { auth } from "@/server/auth";
-
+import jellyfinClient from "@/server/jellyfin";
 /**
  * 1. CONTEXT
  *
@@ -32,6 +32,7 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
   return {
     db,
     session,
+    jellyfinClient,
   };
 };
 
