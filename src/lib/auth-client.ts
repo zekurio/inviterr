@@ -4,19 +4,11 @@ import { createAuthClient } from "better-auth/react";
 
 export const authClient = createAuthClient({
   plugins: [usernameClient()],
-  baseURL: env.NEXT_PUBLIC_BETTER_AUTH_BASE_URL,
 });
 
 export const signinDiscord = async () => {
   const data = await authClient.signIn.social({
     provider: "discord",
-  });
-  return data;
-};
-
-export const signinGoogle = async () => {
-  const data = await authClient.signIn.social({
-    provider: "google",
   });
   return data;
 };

@@ -18,7 +18,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@inviterr.com
       PGADMIN_DEFAULT_PASSWORD: inviterr
     ports:
-      - "8080:80"
+      - "8081:80"
     depends_on:
       - db
 

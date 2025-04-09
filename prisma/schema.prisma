@@ -108,8 +108,7 @@ model Profile {
 }
 
 model JellyfinUser {
-  id             String    @id @default(cuid())
-  jellyfinUserId String    @unique
+  id             String    @id // Jellyfin User ID
   username       String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId         String    @unique

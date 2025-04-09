@@ -13,9 +13,9 @@ export const env = createEnv({
         : z.string().optional(),
     BETTER_AUTH_DISCORD_ID: z.string(),
     BETTER_AUTH_DISCORD_SECRET: z.string(),
-    BETTER_AUTH_GOOGLE_ID: z.string(),
-    BETTER_AUTH_GOOGLE_SECRET: z.string(),
+    BETTER_AUTH_BASE_URL: z.string().url(),
     RESEND_KEY: z.string(),
+    EMAIL_FROM: z.string().email(),
     DATABASE_URL: z.string().url(),
     JELLYFIN_SERVER_URL: z.string().url(),
     JELLYFIN_PUBLIC_SERVER_URL: z.string().url(),
@@ -31,7 +31,7 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    NEXT_PUBLIC_BETTER_AUTH_BASE_URL: z.string().url(),
+    // NEXT_PUBLIC_CLIENTVAR: z.string(),
   },
 
   /**
@@ -42,11 +42,9 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_DISCORD_ID: process.env.BETTER_AUTH_DISCORD_ID,
     BETTER_AUTH_DISCORD_SECRET: process.env.BETTER_AUTH_DISCORD_SECRET,
-    BETTER_AUTH_GOOGLE_ID: process.env.BETTER_AUTH_GOOGLE_ID,
-    BETTER_AUTH_GOOGLE_SECRET: process.env.BETTER_AUTH_GOOGLE_SECRET,
-    NEXT_PUBLIC_BETTER_AUTH_BASE_URL:
-      process.env.NEXT_PUBLIC_BETTER_AUTH_BASE_URL,
+    BETTER_AUTH_BASE_URL: process.env.BETTER_AUTH_BASE_URL,
     RESEND_KEY: process.env.RESEND_KEY,
+    EMAIL_FROM: process.env.EMAIL_FROM,
     DATABASE_URL: process.env.DATABASE_URL,
     JELLYFIN_SERVER_URL: process.env.JELLYFIN_SERVER_URL,
     JELLYFIN_PUBLIC_SERVER_URL: process.env.JELLYFIN_PUBLIC_SERVER_URL,

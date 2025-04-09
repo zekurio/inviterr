@@ -23,15 +23,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { FaDiscord, FaGoogle } from "react-icons/fa";
-import { signinDiscord, signinGoogle, signinUsername } from "@/lib/auth-client";
+import { FaDiscord } from "react-icons/fa";
+import { signinDiscord, signinUsername } from "@/lib/auth-client";
 import { toast } from "sonner";
-
-// Define Zod schema for the form
-const formSchema = z.object({
-  username: z.string().min(1, { message: "Username or email is required." }),
-  password: z.string().min(1, { message: "Password is required." }),
-});
+import { Legal } from "@/components/legal";
+import { formSchema } from "@/lib/helpers/zod/login-schemas";
 
 // Infer the type from the schema
 type LoginFormValues = z.infer<typeof formSchema>;
@@ -66,8 +62,7 @@ export function LoginForm({
     setServerError(null);
     form.clearErrors();
     try {
-      const signInFn = provider === "discord" ? signinDiscord : signinGoogle;
-      const result = await signInFn();
+      const result = await signinDiscord();
 
       if (result.error) {
         const errorMessage =
@@ -109,7 +104,7 @@ export function LoginForm({
         setIsLoading(false);
       } else if (result.data) {
         toast.success("Login successful!");
-        router.push("/dashboard");
+        router.push("/account");
         router.refresh();
       } else {
         const errorMessage = "Login failed: Unexpected response from server.";
@@ -151,16 +146,6 @@ export function LoginForm({
                 >
                   <FaDiscord className="mr-2 h-4 w-4" />
                   Login with Discord
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  type="button"
-                  onClick={() => handleSocialSignIn("google")}
-                  disabled={isLoading || form.formState.isSubmitting}
-                >
-                  <FaGoogle className="mr-2 h-4 w-4" />
-                  Login with Google
                 </Button>
               </div>
               <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
@@ -234,10 +219,7 @@ export function LoginForm({
           </Form>
         </CardContent>
       </Card>
-      <div className="text-muted-foreground [&_a]:hover:text-primary text-center text-xs text-balance [&_a]:underline [&_a]:underline-offset-4">
-        By clicking continue, you agree to our <a href="#">Terms of Service</a>{" "}
-        and <a href="#">Privacy Policy</a>.
-      </div>
+      <Legal />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import { cache } from "react";
 import { headers } from "next/headers";
 import { resend } from "@/server/resend";
+import { env } from "@/env";
 
 const prisma = new PrismaClient();
 
@@ -13,6 +14,12 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60,
+    },
+  },
   plugins: [username(), nextCookies(), admin()],
   emailAndPassword: {
     enabled: true,
@@ -21,7 +28,7 @@ export const auth = betterAuth({
       console.log("Reset password URL:", url);
       try {
         await resend.emails.send({
-          from: "noreply@example.com",
+          from: "SchnitzelFlix <" + env.EMAIL_FROM + ">",
           to: user.email,
           subject: "Reset your password",
           text: `Click here to reset your password: ${url}`,
@@ -34,12 +41,9 @@ export const auth = betterAuth({
   },
   socialProviders: {
     discord: {
-      clientId: process.env.DISCORD_CLIENT_ID!,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-    },
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: env.BETTER_AUTH_DISCORD_ID,
+      clientSecret: env.BETTER_AUTH_DISCORD_SECRET,
+      scopes: ["identify", "email"],
     },
   },
 });
