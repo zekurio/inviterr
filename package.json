@@ -43,7 +43,7 @@
     "marked": "18.0.5",
     "next-themes": "0.4.6",
     "nitro": "3.0.260610-beta",
-    "nodemailer": "9.0.3",
+    "nodemailer": "9.1.1",
     "pino": "10.3.1",
     "radix-ui": "1.6.2",
     "rate-limiter-flexible": "9.1.1",
