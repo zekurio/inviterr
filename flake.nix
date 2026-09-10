@@ -416,7 +416,7 @@
           default = inviterr;
           inviterr = inviterr;
         }
-        // lib.optionalAttrs pkgs.stdenv.isLinux {
+        // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
           dockerImage = dockerImage;
         };
 
