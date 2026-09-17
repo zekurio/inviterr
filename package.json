@@ -10,7 +10,7 @@
     "@hookform/resolvers": "5.4.0",
     "@libsql/client": "0.17.4",
     "@orpc/client": "1.14.7",
-    "@orpc/server": "1.14.7",
+    "@orpc/server": "1.14.8",
     "@orpc/tanstack-query": "1.14.7",
     "@radix-ui/react-alert-dialog": "1.1.19",
     "@radix-ui/react-avatar": "1.2.2",
