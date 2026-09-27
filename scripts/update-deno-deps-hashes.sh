@@ -27,6 +27,9 @@ declare -A targets=(
 )
 
 hashes=()
+workspace_package=$(deno eval --no-config \
+  'const pkg = JSON.parse(Deno.readTextFileSync(Deno.args[0])); console.log(`${pkg.name}@${pkg.version}`)' \
+  "$repo/package.json")
 
 for system in aarch64-darwin x86_64-darwin aarch64-linux x86_64-linux; do
   read -r os arch <<<"${targets[$system]}"
@@ -43,6 +46,8 @@ for system in aarch64-darwin x86_64-darwin aarch64-linux x86_64-linux; do
       --frozen \
       --quiet
     rm -f node_modules/.deno/.setup-cache.bin node_modules/.deno/.deno.lock
+    # Deno's empty workspace directory changes with the app version, not its dependencies.
+    rmdir "node_modules/.deno/$workspace_package"
     cp -a node_modules "$dir/out/node_modules"
   )
   hashes+=("$system = \"$(nix hash path "$dir/out")\";")

@@ -30,10 +30,10 @@
           configPath ? "./data/config.json",
           logLevel ? "info",
           denoDepsHashes ? {
-            aarch64-darwin = "sha256-uP3xF5TA4eaPUiG007CF3eNRFhZ9jj8eg3F4z001n/I=";
-            x86_64-darwin = "sha256-tZCg4UQe7kkkJfeHIfd0q4+kpeQXnPNdvCTDeOifz9A=";
-            aarch64-linux = "sha256-iuLiSS1BJLEObzkO7k01coyInjJ6JaZuNH9jqd2xdDM=";
-            x86_64-linux = "sha256-yn1HjhTeg8uACU9iel3LikwPTWJb5ckUi2WhI5AYAwo=";
+            aarch64-darwin = "sha256-lZ6fmWJcArhzgKlzQmxqz67P1faf5R9fQnXQkC+rnAE=";
+            x86_64-darwin = "sha256-PZK0wQQOTcfRuQIY7MhxDVXCfu9MPJaoDSejwckKj1A=";
+            aarch64-linux = "sha256-4zoUwVZlYbteqaPhPDL2+AVeta6hFz6lh8HDo+zx+98=";
+            x86_64-linux = "sha256-jDbqP/k9SO3tHHPbg3OLxUdJ9oRf0b8CKiuUvxoZCqU=";
           },
         }:
         let
@@ -115,6 +115,8 @@
               runHook preInstall
               mkdir -p $out
               rm -f node_modules/.deno/.setup-cache.bin node_modules/.deno/.deno.lock
+              # Keep dependency hashes independent of the app version.
+              rmdir node_modules/.deno/${packageJson.name}@${packageJson.version}
               cp -a node_modules $out/node_modules
               runHook postInstall
             '';
