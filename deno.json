@@ -14,7 +14,7 @@
     "lint": "deno run -A npm:oxlint@1.73.0 .",
     "lint:github": "deno run -A npm:oxlint@1.73.0 . --format=github",
     "lint:fix": "deno run -A npm:oxlint@1.73.0 . --fix",
-    "test": "deno run -A npm:vitest@4.1.10 run",
+    "test": "deno run -A npm:vitest@4.1.11 run",
     "typecheck": "deno run -A npm:@typescript/native-preview@7.0.0-dev.20260414.1 --noEmit -p tsconfig.json",
     "check": "deno task lint && deno task typecheck",
     "format": "deno run -A npm:oxfmt@0.58.0 .",
