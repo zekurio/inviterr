@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: deno install --frozen
 
+      - name: Audit dependencies
+        run: deno audit
+
       - name: Run format check
         run: deno task format:check
 
