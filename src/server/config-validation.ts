@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer"
+import { createTransport } from "nodemailer"
 
 import type { EmailConfig, SeerrConfig } from "@/lib/server/config.server"
 import { getJellyfinAuthorizationHeader } from "@/server/jellyfin/client"
@@ -94,7 +94,7 @@ export async function assertEmailConnection(
     throw new EmailConnectionValidationError()
   }
 
-  const transporter = nodemailer.createTransport({
+  const transporter = createTransport({
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure ?? false,
