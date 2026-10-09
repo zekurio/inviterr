@@ -156,9 +156,9 @@ const ProfileCard = memo(function ProfileCard({
           />
         </Button>
         <Button
-          variant="ghost"
+          variant="destructive-ghost"
           size="icon"
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive h-7 w-7"
+          className="h-7 w-7"
           onClick={() => onDelete(profile)}
           disabled={profile.isDefault}
           aria-label={

@@ -127,7 +127,7 @@ export function BrandingImageField({
         {hasImage && (
           <Button
             type="button"
-            variant="destructive"
+            variant="destructive-ghost"
             size="sm"
             onClick={() => onChange({ action: "remove" })}
           >

@@ -155,7 +155,7 @@ export function UserEmailDialog({
         </FieldGroup>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+          <Button variant="ghost" onClick={onClose} disabled={isSaving}>
             {t("common.cancel")}
           </Button>
           <Button onClick={() => void handleSave()} disabled={isSaving}>

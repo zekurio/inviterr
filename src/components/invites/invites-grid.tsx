@@ -199,9 +199,9 @@ const InviteCard = memo(function InviteCard({
             <Ban className="h-3.5 w-3.5" />
           </Button>
           <Button
-            variant="ghost"
+            variant="destructive-ghost"
             size="icon"
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive h-7 w-7"
+            className="h-7 w-7"
             onClick={() => onDelete(invite)}
             aria-label={t("invites.deleteInvite")}
             title={t("invites.deleteInvite")}

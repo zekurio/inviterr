@@ -68,7 +68,7 @@ function SettingsActionButtons({
       </Button>
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         disabled={!isDirty || isSubmitting}
         onClick={onReset}
         className="w-full sm:w-auto"

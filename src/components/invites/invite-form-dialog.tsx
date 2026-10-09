@@ -311,7 +311,7 @@ export function InviteFormDialog({
           <DialogFooter className="pt-4">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               onClick={() => onOpenChange(false)}
               disabled={formState.isSubmitting}
             >

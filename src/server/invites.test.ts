@@ -559,4 +559,25 @@ describe("redeemInvite", () => {
     expect(await getInviteUseCount(setup, invite.id)).toBe(0)
     expect(validation.valid).toBe(true)
   })
+
+  it("restores use counts from recorded invite usages", async () => {
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    const invite = await seedInvite(setup, {
+      code: "FAMILY12",
+      profileId: profile.id,
+      useLimit: 10,
+    })
+    const userIds = ["redeemed-user-1", "redeemed-user-2"]
+    await setup.database.db
+      .insert(setup.schema.users)
+      .values(userIds.map((userId) => ({ userId, inviteId: invite.id })))
+    await setup.database.db
+      .insert(setup.schema.inviteUsages)
+      .values(userIds.map((userId) => ({ inviteId: invite.id, userId })))
+
+    await setup.userLifecycle.reconcileInviteUseCounts()
+
+    expect(await getInviteUseCount(setup, invite.id)).toBe(2)
+  })
 })

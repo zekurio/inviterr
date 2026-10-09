@@ -26,12 +26,9 @@ export function UserDeleteActionButton({
 
   return (
     <Button
-      variant="ghost"
+      variant="destructive-ghost"
       size={showLabel ? "sm" : "icon"}
-      className={cn(
-        showLabel && "h-8",
-        "text-destructive hover:bg-destructive/10 hover:text-destructive",
-      )}
+      className={cn(showLabel && "h-8")}
       onClick={() => onDeleteUser(user)}
       aria-label={label}
       title={label}

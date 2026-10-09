@@ -120,8 +120,9 @@ export function HeaderUserNav({
         </DropdownMenuSub>
         <DropdownMenuSeparator />
         <DropdownMenuItem
+          variant="destructive"
           onClick={handleLogout}
-          className="text-destructive cursor-pointer"
+          className="cursor-pointer"
         >
           <LogOut className="mr-2 h-4 w-4" />
           {t("auth.logout")}
