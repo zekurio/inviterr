@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, ne, or, sql } from "drizzle-orm"
+import { and, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm"
 
 import { resolveLocale } from "@/lib/i18n"
 import { configManager } from "@/lib/server/config.server"
@@ -106,17 +106,18 @@ export function reconcileInviteUseCounts(): Promise<void> {
   inviteUsageReconcilePromise = (async () => {
     await ensureMigrated()
 
+    // Not a correlated sql`` subquery: Drizzle drops table qualifiers inside
+    // sql`` for single-table selects, so `invite_id = id` would match
+    // invite_usages.id and zero every count.
     const inviteRows = await db
       .select({
         id: invites.id,
         useCount: invites.useCount,
-        usageCount: sql<number>`(
-          select count(*)
-          from ${inviteUsages}
-          where ${inviteUsages.inviteId} = ${invites.id}
-        )`,
+        usageCount: count(inviteUsages.id),
       })
       .from(invites)
+      .leftJoin(inviteUsages, eq(inviteUsages.inviteId, invites.id))
+      .groupBy(invites.id)
 
     const staleInvites = inviteRows.filter(
       (invite) => invite.useCount !== invite.usageCount,

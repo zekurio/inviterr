@@ -403,7 +403,7 @@ export function ProfileSettings({
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   disabled={!generalDirty}
                   onClick={handleGeneralReset}
                 >
@@ -514,7 +514,7 @@ export function ProfileSettings({
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   disabled={!passwordDirty}
                   onClick={handlePasswordReset}
                 >
@@ -614,7 +614,7 @@ export function ProfileSettings({
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   disabled={!preferencesDirty}
                   onClick={handlePreferencesReset}
                 >

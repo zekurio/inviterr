@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { type SyntheticEvent, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -19,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Spinner } from "@/components/ui/spinner"
 import {
   EMAIL_MESSAGE_TYPES,
   type EmailBrandingDraft,
@@ -26,6 +28,7 @@ import {
 } from "@/lib/email"
 import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
+import { cn } from "@/lib/utils"
 
 interface EmailPreviewSectionProps {
   branding: EmailBrandingDraft
@@ -39,9 +42,13 @@ export function EmailPreviewSection({
   const t = useTranslations()
   const [selectedType, setSelectedType] =
     useState<EmailMessageType>("verifyEmail")
+  const [previewOpen, setPreviewOpen] = useState(false)
+  // Outlives previewOpen so the closing animation keeps showing the last
+  // render instead of an emptied (white) iframe.
   const [preview, setPreview] = useState<{
     subject: string
     html: string
+    messageType: EmailMessageType
   } | null>(null)
   const [isPreviewing, setIsPreviewing] = useState(false)
   const [testRecipient, setTestRecipient] = useState("")
@@ -63,7 +70,8 @@ export function EmailPreviewSection({
       return
     }
 
-    setPreview(result.data)
+    setPreview({ ...result.data, messageType: selectedType })
+    setPreviewOpen(true)
   }
 
   async function handleSendTest(): Promise<void> {
@@ -126,6 +134,7 @@ export function EmailPreviewSection({
             onClick={handlePreview}
             className="w-full sm:w-auto"
           >
+            {isPreviewing && <Spinner size="sm" />}
             {t("settings.emailPreview")}
           </Button>
         </div>
@@ -153,6 +162,7 @@ export function EmailPreviewSection({
             onClick={handleSendTest}
             className="w-full sm:w-auto"
           >
+            {isSendingTest && <Spinner size="sm" />}
             {t("settings.emailTestSend")}
           </Button>
         </div>
@@ -163,26 +173,72 @@ export function EmailPreviewSection({
         )}
       </Field>
 
-      <Dialog
-        open={preview !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPreview(null)
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="truncate">{preview?.subject}</DialogTitle>
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="flex flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl sm:p-0">
+          <DialogHeader className="border-b py-4 pr-14 pl-5">
+            <DialogTitle className="truncate leading-normal">
+              {preview?.subject}
+            </DialogTitle>
+            <DialogDescription>
+              {preview &&
+                t(`settings.emailMessageTypes.${preview.messageType}`)}
+            </DialogDescription>
           </DialogHeader>
-          <iframe
-            title={t("settings.emailPreview")}
-            sandbox=""
-            srcDoc={preview?.html ?? ""}
-            className="h-[65vh] w-full rounded-md border bg-white [color-scheme:light]"
-          />
+          {preview && (
+            <EmailPreviewFrame
+              html={preview.html}
+              title={t("settings.emailPreview")}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+// Sized to the rendered email so the dialog scrolls instead of a nested
+// iframe scrollbar. allow-same-origin (still without allow-scripts) lets the
+// parent measure the document; pointer-events-none keeps the fake preview
+// links from navigating the frame and keeps focus (and Escape) in the dialog.
+function EmailPreviewFrame({ html, title }: { html: string; title: string }) {
+  const [height, setHeight] = useState<number | null>(null)
+  const observerRef = useRef<ResizeObserver | null>(null)
+
+  useEffect(() => () => observerRef.current?.disconnect(), [])
+
+  function handleLoad(event: SyntheticEvent<HTMLIFrameElement>): void {
+    const root = event.currentTarget.contentDocument?.documentElement
+    if (!root) {
+      return
+    }
+
+    const measure = () =>
+      setHeight(Math.ceil(root.getBoundingClientRect().height))
+    measure()
+    observerRef.current?.disconnect()
+    observerRef.current = new ResizeObserver(measure)
+    observerRef.current.observe(root)
+  }
+
+  return (
+    <div className="relative min-h-48 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] sm:pb-0">
+      {height === null && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Spinner />
+        </div>
+      )}
+      <iframe
+        title={title}
+        sandbox="allow-same-origin"
+        srcDoc={html}
+        tabIndex={-1}
+        onLoad={handleLoad}
+        style={{ height: height ?? 0 }}
+        className={cn(
+          "pointer-events-none block w-full border-0 transition-opacity duration-200 [color-scheme:light]",
+          height === null ? "opacity-0" : "opacity-100",
+        )}
+      />
+    </div>
   )
 }

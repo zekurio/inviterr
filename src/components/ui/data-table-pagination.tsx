@@ -28,7 +28,7 @@ export function DataTablePagination({
     <div className="flex items-center justify-end gap-2">
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         size="icon-sm"
         onClick={onPrevious}
         disabled={!canPrevious}
@@ -41,7 +41,7 @@ export function DataTablePagination({
       </span>
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         size="icon-sm"
         onClick={onNext}
         disabled={!canNext}

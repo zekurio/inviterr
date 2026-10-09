@@ -118,7 +118,7 @@ export function UserEditDialog({
         <DialogFooter>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             onClick={onCancel}
             disabled={isSaving}
           >

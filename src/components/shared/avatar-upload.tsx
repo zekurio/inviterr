@@ -561,7 +561,7 @@ export function AvatarUploadButton({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleCropCancel}>
+            <Button type="button" variant="ghost" onClick={handleCropCancel}>
               {t("common.cancel")}
             </Button>
             <Button

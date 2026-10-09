@@ -4,6 +4,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 import type * as React from "react"
 
 import { buttonVariants } from "@/components/ui/button"
+import { modalContentMotion, overlayMotion } from "@/components/ui/motion"
 import { cn } from "@/lib/utils"
 
 function AlertDialog({
@@ -35,10 +36,7 @@ function AlertDialogOverlay({
   return (
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
-      className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
-        className,
-      )}
+      className={cn(overlayMotion, "fixed inset-0 z-50 bg-black/50", className)}
       {...props}
     />
   )
@@ -54,7 +52,8 @@ function AlertDialogContent({
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[state=open]:slide-in-from-bottom fixed inset-x-0 bottom-0 z-50 grid w-full max-h-[70svh] gap-3 overflow-y-auto rounded-t-2xl border p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] max-sm:has-[[data-slot=alert-dialog-footer]]:pb-0 shadow-lg duration-200 sm:top-1/2 sm:left-1/2 sm:right-auto sm:bottom-auto sm:max-h-[calc(100vh-4rem)] sm:max-w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:p-5 sm:pb-5 sm:data-[state=closed]:fade-out-0 sm:data-[state=open]:fade-in-0 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:max-w-lg",
+          modalContentMotion,
+          "bg-background fixed inset-x-0 bottom-0 z-50 grid w-full max-h-[70svh] gap-3 overflow-y-auto rounded-t-2xl border p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] max-sm:has-[[data-slot=alert-dialog-footer]]:pb-0 shadow-lg sm:top-1/2 sm:left-1/2 sm:right-auto sm:bottom-auto sm:max-h-[calc(100vh-4rem)] sm:max-w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:p-5 sm:pb-5 sm:max-w-lg",
           className,
         )}
         {...props}
@@ -136,7 +135,7 @@ function AlertDialogCancel({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
   return (
     <AlertDialogPrimitive.Cancel
-      className={cn(buttonVariants({ variant: "outline" }), className)}
+      className={cn(buttonVariants({ variant: "ghost" }), className)}
       {...props}
     />
   )

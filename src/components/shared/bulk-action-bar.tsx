@@ -42,13 +42,9 @@ export function BulkActionBar({
         {actions.map((action) => (
           <Button
             key={action.key}
-            variant="ghost"
+            variant={action.destructive ? "destructive-ghost" : "ghost"}
             size="sm"
-            className={cn(
-              "h-7 gap-1.5 text-xs",
-              action.destructive &&
-                "text-destructive hover:bg-destructive/10 hover:text-destructive",
-            )}
+            className="h-7 gap-1.5 text-xs"
             onClick={action.onClick}
           >
             <action.icon className="h-3.5 w-3.5" />

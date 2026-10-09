@@ -85,7 +85,7 @@ export function MemberOnboardingSettingsTab({
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               disabled={!isDirty || isSaving}
               onClick={handleReset}
               className="w-full sm:w-auto"

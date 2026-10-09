@@ -9,7 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
 
 interface ConfirmAlertShellProps {
   title: string
@@ -43,11 +43,9 @@ export function ConfirmAlertShell({
         <AlertDialogAction
           onClick={onConfirm}
           disabled={isLoading}
-          className={cn(
-            destructive
-              ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              : "",
-          )}
+          className={
+            destructive ? buttonVariants({ variant: "destructive" }) : undefined
+          }
         >
           {confirmLabel}
         </AlertDialogAction>
