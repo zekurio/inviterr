@@ -1,4 +1,8 @@
-import nodemailer, { type SendMailOptions, type Transporter } from "nodemailer"
+import {
+  createTransport,
+  type SendMailOptions,
+  type Transporter,
+} from "nodemailer"
 
 import { configManager, type EmailConfig } from "@/lib/server/config.server"
 import { createChildLogger } from "@/server/logger"
@@ -51,7 +55,7 @@ function getSmtpTransporter(smtp: SmtpConfig): Transporter {
       { host: smtp.host, port: smtp.port, secure: smtp.secure ?? false },
       "Creating new SMTP transporter",
     )
-    smtpTransporter = nodemailer.createTransport({
+    smtpTransporter = createTransport({
       host: smtp.host,
       port: smtp.port,
       secure: smtp.secure ?? false,
