@@ -1,4 +1,8 @@
-import { createTransport, type SendMailOptions, type Transporter } from "nodemailer"
+import {
+  createTransport,
+  type SendMailOptions,
+  type Transporter,
+} from "nodemailer"
 
 import { configManager, type EmailConfig } from "@/lib/server/config.server"
 import { createChildLogger } from "@/server/logger"
