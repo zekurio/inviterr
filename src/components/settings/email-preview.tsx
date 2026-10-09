@@ -221,7 +221,10 @@ function EmailPreviewFrame({ html, title }: { html: string; title: string }) {
   }
 
   return (
-    <div className="relative min-h-48 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] sm:pb-0">
+    <div
+      tabIndex={0}
+      className="focus-visible:outline-ring relative min-h-48 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] focus-visible:outline-2 focus-visible:-outline-offset-2 sm:pb-0"
+    >
       {height === null && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Spinner />
