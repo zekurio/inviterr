@@ -34,6 +34,8 @@ import { isEmailConfigured } from "@/server/email"
 import { sendConfiguredEmail } from "@/server/email/messages"
 import {
   authenticateUser,
+  changePassword,
+  createAdminApi,
   createUser,
   deleteUser,
   isUsernameTaken,
@@ -49,7 +51,10 @@ import { deleteSeerrUser, resolveSeerrUser } from "@/server/seerr"
 import { createSeerrUserLookupCache } from "@/server/seerr/users"
 import { revokeAllUserSessions } from "@/server/session"
 import { getSessionDataForUser } from "@/server/session-resolver"
-import { createEmailVerificationToken } from "@/server/tokens"
+import {
+  createEmailVerificationToken,
+  generateSecureToken,
+} from "@/server/tokens"
 
 const ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 const CODE_LENGTH = 8
@@ -448,6 +453,15 @@ export async function redeemInvite(
       return error(ErrorCode.INVITE_DISABLED)
     }
 
+    // A timed account starts with a throwaway password that is never stored
+    // or logged, and only gets the applicant's password once its expiry is
+    // recorded. An account left behind by a lost response, a crash or a
+    // failed first write therefore can't be signed into, so recovery can't
+    // turn it into non-expiring access. Jellyfin itself commits a new account
+    // before its password, so a create that fails inside Jellyfin between
+    // those writes can still leave an account without one.
+    const stagingPassword =
+      invite.access_duration_days === null ? null : generateSecureToken()
     let jellyfinUser: { id: string; name: string; isAdmin: boolean }
     try {
       if (await isUsernameTaken(parsed.data.username)) {
@@ -457,7 +471,7 @@ export async function redeemInvite(
 
       jellyfinUser = await createUser(
         parsed.data.username,
-        parsed.data.password,
+        stagingPassword ?? parsed.data.password,
       )
       logger.info(
         { userId: jellyfinUser.id, username: jellyfinUser.name },
@@ -472,12 +486,12 @@ export async function redeemInvite(
       return error(ErrorCode.JELLYFIN_ERROR, "Failed to create user account")
     }
 
-    // Record the account with its access expiry as soon as Jellyfin creates
-    // it. If redemption then fails and the account survives (unknown Seerr
-    // outcome, failed cleanup, or a crash), login and startup recovery keep
-    // this record instead of recreating the user as non-expiring. Access is
-    // counted from here, matching the createdAt the renewal lifetime ceiling
-    // is measured from.
+    // Record the account with its access expiry before the applicant's
+    // password can work. If redemption then fails and the account survives
+    // (unknown Seerr outcome, failed cleanup, or a crash), login and startup
+    // recovery keep this record instead of recreating the user as
+    // non-expiring. Access is counted from here, matching the createdAt the
+    // renewal lifetime ceiling is measured from.
     const redeemedAt = new Date()
     const accessExpiresAt =
       invite.access_duration_days === null
@@ -501,8 +515,8 @@ export async function redeemInvite(
           expiryWarningSentFor: null,
           createdAt: redeemedAt,
         })
-        // A login with the new credentials can win the race and record the
-        // account through ensureUserRecord first, without an expiry.
+        // Startup seeding, an admin edit, or a login on an invite without a
+        // duration can record the new account through ensureUserRecord first.
         .onConflictDoUpdate({
           target: users.userId,
           set: {
@@ -526,6 +540,29 @@ export async function redeemInvite(
         ErrorCode.INTERNAL_ERROR,
         "Failed to complete registration. Please try again.",
       )
+    }
+
+    if (stagingPassword !== null) {
+      try {
+        await changePassword(
+          createAdminApi(),
+          jellyfinUser.id,
+          stagingPassword,
+          parsed.data.password,
+        )
+      } catch (err) {
+        logger.error(
+          { err, userId: jellyfinUser.id },
+          "Failed to set the applicant's password on the created Jellyfin user, performing compensation",
+        )
+        await compensateInviteRedemption({
+          inviteId,
+          jellyfinUserId: jellyfinUser.id,
+          seerrUserId: null,
+          usageRecorded: false,
+        })
+        return error(ErrorCode.JELLYFIN_ERROR, "Failed to create user account")
+      }
     }
 
     let seerrConfigured: boolean

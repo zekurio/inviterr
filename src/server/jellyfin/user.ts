@@ -83,8 +83,8 @@ export async function updateOwnProfile(
 }
 
 /**
- * Change the user's password.
- * Uses the user's access token.
+ * Change a user's password. Jellyfin checks the current password unless an
+ * administrator changes another user's password.
  */
 export async function changePassword(
   api: JellyfinClient,
