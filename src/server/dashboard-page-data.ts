@@ -1,4 +1,6 @@
+import type { AuditEventFiltersDto } from "@/lib/api/contracts/admin"
 import type { ActionResult } from "@/lib/api/contracts/errors"
+import { AUDIT_RETENTION_DEFAULT_DAYS } from "@/lib/audit"
 import {
   DEFAULT_DASHBOARD_SETTINGS_TAB,
   type DashboardSettingsTab,
@@ -9,6 +11,7 @@ import {
   countPendingAccessRequests,
   listAccessRequestsService,
 } from "@/server/admin/access-requests"
+import { listAuditEventsPageService } from "@/server/admin/audit"
 import { getSeerrConfigService } from "@/server/admin/config"
 import {
   getInviteHistoryPageService,
@@ -29,6 +32,7 @@ export interface DashboardPageLoaderInput {
   invites?: Parameters<typeof listInvitesPageService>[0]
   history?: Parameters<typeof getInviteHistoryPageService>[0]
   users?: Parameters<typeof listUsersWithProfilesService>[0]
+  audit?: Parameters<typeof listAuditEventsPageService>[0]
 }
 
 export interface DashboardPageData {
@@ -98,6 +102,15 @@ export interface DashboardPageData {
     query: string
     error: string | null
   }
+  auditData: {
+    page: Awaited<
+      ReturnType<typeof listAuditEventsPageService>
+    > extends ActionResult<infer T>
+      ? T
+      : never
+    filters: AuditEventFiltersDto
+    error: string | null
+  }
 }
 
 function unwrapActionResult<T>(
@@ -162,6 +175,7 @@ export async function loadDashboardPageData({
   invites,
   history,
   users,
+  audit,
 }: DashboardPageLoaderInput): Promise<DashboardPageData> {
   const { bootstrap, locale } = await enforcePageAccess("admin")
   const session = bootstrap.session
@@ -190,6 +204,10 @@ export async function loadDashboardPageData({
       : Promise.resolve(null)
   const accessRequestsBootstrapPromise =
     activeTab === "users" ? listAccessRequestsService() : Promise.resolve(null)
+  const auditBootstrapPromise =
+    activeTab === "audit"
+      ? listAuditEventsPageService(audit ?? {})
+      : Promise.resolve(null)
 
   const [
     settingsData,
@@ -199,6 +217,7 @@ export async function loadDashboardPageData({
     historyBootstrap,
     accessRequestsBootstrap,
     pendingAccessRequestCount,
+    auditBootstrap,
   ] = await Promise.all([
     settingsDataPromise,
     invitesBootstrapPromise,
@@ -207,6 +226,7 @@ export async function loadDashboardPageData({
     historyBootstrapPromise,
     accessRequestsBootstrapPromise,
     countPendingAccessRequests(),
+    auditBootstrapPromise,
   ])
 
   if (!settingsData) {
@@ -272,6 +292,17 @@ export async function loadDashboardPageData({
         profileName: null,
       })
     : { data: { requests: [], profileName: null }, hasError: false }
+  const emptyAuditPage = {
+    items: [],
+    page: 1,
+    pageSize: 50,
+    total: 0,
+    pageCount: 0,
+    retentionDays: AUDIT_RETENTION_DEFAULT_DAYS,
+  }
+  const initialAudit = auditBootstrap
+    ? unwrapActionResult(auditBootstrap, emptyAuditPage)
+    : { data: emptyAuditPage, hasError: false }
   const initialSeerrConfig = profilesBootstrap
     ? unwrapActionResult(profilesBootstrap.seerrConfig, {
         internalUrl: undefined,
@@ -336,6 +367,20 @@ export async function loadDashboardPageData({
       page: initialHistory.data,
       query: history?.query ?? "",
       error: initialHistory.hasError ? t("invites.historyFetchFailed") : null,
+    },
+    auditData: {
+      page: initialAudit.data,
+      filters: {
+        actorType: audit?.actorType,
+        actor: audit?.actor,
+        action: audit?.action,
+        targetType: audit?.targetType,
+        target: audit?.target,
+        batch: audit?.batch,
+        from: audit?.from,
+        to: audit?.to,
+      },
+      error: initialAudit.hasError ? t("audit.loadFailed") : null,
     },
   }
 }

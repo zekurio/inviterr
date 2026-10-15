@@ -7,6 +7,7 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import { auditActorFromSession, type AuditDetails } from "@/lib/audit"
 import { resolveLocale } from "@/lib/i18n"
 import type { MyExpiryInfo } from "@/lib/renewal-types"
 import {
@@ -21,6 +22,11 @@ import { getSession } from "@/lib/server/auth"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
 import { safeParse } from "@/lib/validation"
+import {
+  diffAuditFields,
+  recordAuditChange,
+  recordAuditEvent,
+} from "@/server/audit"
 import {
   clearAuthCookies,
   clearAuthenticatedSession,
@@ -125,6 +131,36 @@ export async function updateMyAccount(
     }
   }
 
+  // session.email shows a pending address in place of the stored one, so an
+  // email change is described against the stored row.
+  const storedUser =
+    requestedEmail !== undefined && requestedEmail !== (session.email ?? null)
+      ? await db.query.users.findFirst({
+          where: eq(users.userId, session.userId),
+          columns: { email: true },
+        })
+      : undefined
+  const pendingEmail =
+    storedUser && session.email !== storedUser.email ? session.email : null
+  const emailChanges = storedUser
+    ? diffAuditFields(
+        { email: storedUser.email, pendingEmail },
+        requestedEmail === null
+          ? { email: null, pendingEmail: null }
+          : { email: storedUser.email, pendingEmail: requestedEmail },
+      )
+    : {}
+  const accountChanges = diffAuditFields(
+    { name: session.name, locale: session.locale },
+    { name: nextName, locale: nextLocale },
+  )
+  const recordAccountUpdate = (details: AuditDetails) =>
+    recordAuditChange(auditActorFromSession(session), {
+      action: "user.updated",
+      target: { id: session.userId, label: nextName },
+      details,
+    })
+
   if (parsed.data.name !== undefined) {
     await updateUserName(session.userId, parsed.data.name)
     await updateCurrentSessionIdentity({ displayName: parsed.data.name })
@@ -181,6 +217,8 @@ export async function updateMyAccount(
         })
       } catch (sendError) {
         await deleteEmailVerificationToken(session.userId)
+        // Name and locale changes are already saved; only the email failed.
+        await recordAccountUpdate(accountChanges)
         if (sendError instanceof EmailApiError) {
           return error(ErrorCode.EMAIL_SERVICE_ERROR)
         }
@@ -188,6 +226,10 @@ export async function updateMyAccount(
       }
     }
   }
+
+  // A new address only replaces the stored one once verified, which records
+  // user.email_verified.
+  await recordAccountUpdate({ ...accountChanges, ...emailChanges })
 
   return success(
     await getSessionDataForUser({
@@ -229,6 +271,10 @@ export async function changeMyPassword(
   }
 
   await adminResetUserPassword(session.userId, parsed.data.newPassword)
+  await recordAuditEvent(auditActorFromSession(session), {
+    action: "user.password_changed",
+    target: { id: session.userId, label: jellyfinUser.name },
+  })
 
   const jellyfinDeviceId = crypto.randomUUID()
   try {
@@ -458,6 +504,14 @@ export async function renewMyAccess(
     },
     "Member self-renewed account access",
   )
+  await recordAuditEvent(auditActorFromSession(session), {
+    action: "user.renewed",
+    target: { id: session.userId, label: session.name },
+    details: diffAuditFields(
+      { expiresAt: evaluation.expiresAt },
+      { expiresAt: evaluation.nextExpiresAt },
+    ),
+  })
 
   if (evaluation.nextExpiresAt) {
     await sendAccountRenewedNotification(
@@ -492,11 +546,32 @@ export async function deleteMyAccount(
 
   log.info({ userId: session.userId }, "User initiated account deletion")
 
-  await deleteLinkedSeerrUser(session.userId, {
+  const deletedFromSeerr = await deleteLinkedSeerrUser(session.userId, {
     userName: session.name,
     email: session.email,
   })
-  await deleteUser(session.userId)
+  const recordDeletion = (details: AuditDetails) =>
+    recordAuditEvent(auditActorFromSession(session), {
+      action: "user.deleted",
+      target: { id: session.userId, label: session.name },
+      details: { email: session.email, deletedFromSeerr, ...details },
+    })
+  try {
+    await deleteUser(session.userId)
+  } catch (err) {
+    // A deleted Seerr account cannot be restored, so the stopped deletion is
+    // still recorded before the failure propagates.
+    if (deletedFromSeerr) {
+      await recordDeletion({
+        deletedFromJellyfin: false,
+        failedStage: "jellyfin",
+      })
+    }
+    throw err
+  }
+  // Recorded once the Jellyfin account is gone, so a failure in the local
+  // cleanup below cannot drop the event.
+  await recordDeletion({ deletedFromJellyfin: true })
   await ensureMigrated()
   await deleteAppUserData(session.userId)
   await revokeAllUserSessions(session.userId)

@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { SessionData } from "@/lib/session"
 import type { procedures } from "@/server/orpc/procedures"
+import { TEST_ADMIN_ACTOR } from "@/test/audit"
 import {
   configureTestEnvironment,
   createTestDatabase,
@@ -98,6 +99,10 @@ describe("invite management", () => {
   it("rejects invalid invite creation before persisting and normalizes the corrected code", async () => {
     const setup = await loadInvitesServiceModules()
     const profileId = crypto.randomUUID()
+    // Invites reference their creator, who always has a users row.
+    await setup.database.db
+      .insert(setup.schema.users)
+      .values({ userId: TEST_ADMIN_ACTOR.id })
     await setup.database.db.insert(setup.schema.profiles).values({
       id: profileId,
       name: "Members",
@@ -105,7 +110,7 @@ describe("invite management", () => {
     })
 
     expect(
-      await setup.invitesService.createInviteService(undefined, {
+      await setup.invitesService.createInviteService(TEST_ADMIN_ACTOR, {
         profileId,
         code: "bad!",
       }),
@@ -115,10 +120,13 @@ describe("invite management", () => {
     })
     expect(await setup.database.db.query.invites.findMany()).toEqual([])
 
-    const result = await setup.invitesService.createInviteService(undefined, {
-      profileId,
-      code: "  family-2026  ",
-    })
+    const result = await setup.invitesService.createInviteService(
+      TEST_ADMIN_ACTOR,
+      {
+        profileId,
+        code: "  family-2026  ",
+      },
+    )
     expect(result).toMatchObject({
       success: true,
       data: {
@@ -192,14 +200,22 @@ describe("invite management", () => {
       useCount: 1,
     })
     expect(
-      await setup.invitesService.updateInviteService(inviteId, {}),
+      await setup.invitesService.updateInviteService(
+        TEST_ADMIN_ACTOR,
+        inviteId,
+        {},
+      ),
     ).toMatchObject({
       success: false,
       code: setup.errors.ErrorCode.VALIDATION_FAILED,
     })
     const updates = { isDisabled: true, useCount: 0 }
     expect(
-      await setup.invitesService.updateInviteService(inviteId, updates),
+      await setup.invitesService.updateInviteService(
+        TEST_ADMIN_ACTOR,
+        inviteId,
+        updates,
+      ),
     ).toMatchObject({ success: true, data: { isDisabled: true, useCount: 1 } })
     expect(await setup.database.db.query.invites.findMany()).toMatchObject([
       { id: inviteId, isDisabled: true, useCount: 1 },
@@ -214,12 +230,18 @@ describe("invite management", () => {
       name: "Trial",
       policy: setup.schema.DEFAULT_PROFILE_POLICY,
     })
+    await setup.database.db
+      .insert(setup.schema.users)
+      .values({ userId: TEST_ADMIN_ACTOR.id })
 
-    const created = await setup.invitesService.createInviteService(undefined, {
-      profileId,
-      code: "TRIAL-30",
-      accessDurationDays: 30,
-    })
+    const created = await setup.invitesService.createInviteService(
+      TEST_ADMIN_ACTOR,
+      {
+        profileId,
+        code: "TRIAL-30",
+        accessDurationDays: 30,
+      },
+    )
     if (!created.success) {
       throw new Error("Expected invite creation to succeed")
     }
@@ -233,9 +255,13 @@ describe("invite management", () => {
     })
 
     expect(
-      await setup.invitesService.updateInviteService(created.data.id, {
-        accessDurationDays: 7,
-      }),
+      await setup.invitesService.updateInviteService(
+        TEST_ADMIN_ACTOR,
+        created.data.id,
+        {
+          accessDurationDays: 7,
+        },
+      ),
     ).toMatchObject({ success: true, data: { accessDurationDays: 7 } })
     expect(await setup.invitesService.listInvitesPageService({})).toMatchObject(
       {
@@ -249,9 +275,13 @@ describe("invite management", () => {
     expect(redeemedUser?.expiresAt).toEqual(existingExpiry)
 
     expect(
-      await setup.invitesService.updateInviteService(created.data.id, {
-        accessDurationDays: null,
-      }),
+      await setup.invitesService.updateInviteService(
+        TEST_ADMIN_ACTOR,
+        created.data.id,
+        {
+          accessDurationDays: null,
+        },
+      ),
     ).toMatchObject({ success: true, data: { accessDurationDays: null } })
     expect(await setup.database.db.query.invites.findMany()).toMatchObject([
       { id: created.data.id, access_duration_days: null },
@@ -316,10 +346,13 @@ describe("bulkManageInvitesService", () => {
       { id: disabledInviteId, code: "DISABLED", profileId, isDisabled: true },
     ])
 
-    const result = await setup.invitesService.bulkManageInvitesService({
-      operation: "disable",
-      inviteIds: [enabledInviteId, disabledInviteId, missingInviteId],
-    })
+    const result = await setup.invitesService.bulkManageInvitesService(
+      TEST_ADMIN_ACTOR,
+      {
+        operation: "disable",
+        inviteIds: [enabledInviteId, disabledInviteId, missingInviteId],
+      },
+    )
 
     expect(result.success).toBe(true)
     if (!result.success) {
@@ -381,10 +414,13 @@ describe("bulkManageInvitesService", () => {
       { id: enabledInviteId, code: "ENABLED", profileId, isDisabled: false },
     ])
 
-    const result = await setup.invitesService.bulkManageInvitesService({
-      operation: "enable",
-      inviteIds: [disabledInviteId, enabledInviteId],
-    })
+    const result = await setup.invitesService.bulkManageInvitesService(
+      TEST_ADMIN_ACTOR,
+      {
+        operation: "enable",
+        inviteIds: [disabledInviteId, enabledInviteId],
+      },
+    )
 
     expect(result.success).toBe(true)
     if (!result.success) {
@@ -432,10 +468,13 @@ describe("bulkManageInvitesService", () => {
       .insert(setup.schema.inviteUsages)
       .values({ inviteId: usedInviteId, userId: "invited-user" })
 
-    const result = await setup.invitesService.bulkManageInvitesService({
-      operation: "delete",
-      inviteIds: [usedInviteId],
-    })
+    const result = await setup.invitesService.bulkManageInvitesService(
+      TEST_ADMIN_ACTOR,
+      {
+        operation: "delete",
+        inviteIds: [usedInviteId],
+      },
+    )
 
     expect(result.success).toBe(true)
     if (!result.success) {
@@ -456,10 +495,13 @@ describe("bulkManageInvitesService", () => {
   it("rejects invalid input with a validation error", async () => {
     const setup = await loadInvitesServiceModules()
 
-    const result = await setup.invitesService.bulkManageInvitesService({
-      operation: "disable",
-      inviteIds: [],
-    })
+    const result = await setup.invitesService.bulkManageInvitesService(
+      TEST_ADMIN_ACTOR,
+      {
+        operation: "disable",
+        inviteIds: [],
+      },
+    )
 
     expect(result).toEqual(
       expect.objectContaining({

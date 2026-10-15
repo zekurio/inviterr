@@ -134,6 +134,18 @@ describe("abandoned invite redemptions", () => {
     expect(await setup.localUser("jf-limbo")).toBeUndefined()
     expect(await setup.localUser("jf-admin")).toBeDefined()
     expect(await setup.pendingIds()).toEqual([])
+    expect(
+      await setup.database.db.query.audit_events.findMany({
+        where: (events, { eq }) => eq(events.action, "user.deleted"),
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        actor_type: "system",
+        target_id: "jf-limbo",
+        target_label: "Limbo-User",
+        details: { abandonedRedemption: true, deletedFromJellyfin: true },
+      }),
+    ])
   })
 
   it("keeps an account whose redemption completed but whose row was left behind", async () => {
@@ -181,6 +193,7 @@ describe("abandoned invite redemptions", () => {
 
     expect(await setup.pendingIds()).toEqual([pendingId])
     expect(setup.accounts.has("jf-limbo")).toBe(true)
+    expect(await setup.database.db.query.audit_events.findMany()).toEqual([])
   })
 
   it("leaves a redemption that may still be in flight alone", async () => {

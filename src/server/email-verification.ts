@@ -6,12 +6,14 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import { auditActorFromSession } from "@/lib/audit"
 import { resolveLocale } from "@/lib/i18n"
 import { emailVerificationSchema } from "@/lib/schemas"
 import { getSession } from "@/lib/server/auth"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
 import { safeParse } from "@/lib/validation"
+import { recordAuditEvent } from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
 import { EmailApiError, isEmailConfigured } from "@/server/email"
@@ -59,6 +61,21 @@ export async function verifyEmail(
   }
 
   const verifiedEmail = verified.pendingEmail ?? verified.email
+  // The token holder acts for the account; name and role are only known when
+  // the link is opened from that account's own session.
+  const ownSession =
+    sessionOverride?.userId === verified.userId ? sessionOverride : null
+  await recordAuditEvent(
+    ownSession
+      ? auditActorFromSession(ownSession)
+      : { type: "user", id: verified.userId, name: null },
+    {
+      action: "user.email_verified",
+      target: { id: verified.userId, label: ownSession?.name },
+      details: { email: verifiedEmail },
+    },
+  )
+
   if (configManager.seerr && verifiedEmail) {
     try {
       const syncedSeerrUser = await resolveSeerrUser({

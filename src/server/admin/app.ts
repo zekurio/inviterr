@@ -5,8 +5,10 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import type { AuditActor } from "@/lib/audit"
 import { configManager, type AppConfig } from "@/lib/server/config.server"
 import type { UpdateAppSettingsInput } from "@/server/api/schemas/common-schemas"
+import { diffAuditFields, recordAuditChange } from "@/server/audit"
 import { createChildLogger } from "@/server/logger"
 
 const log = createChildLogger({ module: "admin-app" })
@@ -23,6 +25,7 @@ export function projectAppSettingsDto(
 }
 
 export async function updateAppSettingsService(
+  actor: AuditActor,
   data: UpdateAppSettingsInput,
 ): Promise<ActionResult<AppSettingsDto>> {
   try {
@@ -45,8 +48,17 @@ export async function updateAppSettingsService(
       updates.url = data.url ?? undefined
     }
 
+    const previous = projectAppSettingsDto()
     await configManager.setApp(updates)
-    return success(projectAppSettingsDto())
+    const next = projectAppSettingsDto()
+
+    await recordAuditChange(actor, {
+      action: "settings.updated",
+      target: { id: "app" },
+      details: diffAuditFields(previous, next),
+    })
+
+    return success(next)
   } catch (err) {
     log.error({ err }, "Failed to update app settings")
     return error(ErrorCode.OPERATION_FAILED, "Failed to update app settings")

@@ -7,9 +7,11 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import { auditActorFromSession } from "@/lib/audit"
 import { passwordSchema } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import { safeParse, stringSchema } from "@/lib/validation"
+import { recordAuditEvent } from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
 import { isEmailConfigured } from "@/server/email"
@@ -173,6 +175,17 @@ export async function resetPassword(
 
   const userApi = createApiWithToken(authResult.accessToken)
   await changePassword(userApi, authResult.id, pin, newPassword)
+  await recordAuditEvent(
+    auditActorFromSession({
+      userId: authResult.id,
+      name: authResult.name,
+      isAdmin: authResult.isAdmin,
+    }),
+    {
+      action: "user.password_reset",
+      target: { id: authResult.id, label: authResult.name },
+    },
+  )
 
   try {
     await revokeAllUserSessions(authResult.id)

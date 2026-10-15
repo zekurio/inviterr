@@ -1,12 +1,19 @@
 import { relations, sql } from "drizzle-orm"
 import {
   type AnySQLiteColumn,
+  index,
   integer,
   sqliteTable,
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core"
 
+import {
+  AUDIT_ACTOR_TYPES,
+  AUDIT_TARGET_TYPES,
+  type AuditAction,
+  type AuditDetails,
+} from "@/lib/audit"
 import type { ProfileRenewalPolicy } from "@/lib/renewal-types"
 import { DEFAULT_SEERR_PERMISSIONS } from "@/lib/seerr-permissions"
 
@@ -128,6 +135,32 @@ export const access_requests = sqliteTable(
       .default(DEFAULT_TIMESTAMP_MS),
   },
   (table) => [uniqueIndex("access_requests_email_unique").on(table.email)],
+)
+
+// No foreign keys on purpose: events must outlive the users, invites, and
+// profiles they describe, so actor and target names are stored as snapshots.
+export const audit_events = sqliteTable(
+  "audit_events",
+  {
+    id: text().primaryKey(),
+    created_at: integer({ mode: "timestamp_ms" })
+      .notNull()
+      .default(DEFAULT_TIMESTAMP_MS),
+    actor_type: text({ enum: AUDIT_ACTOR_TYPES }).notNull(),
+    actor_id: text(),
+    actor_name: text(),
+    action: text().notNull().$type<AuditAction>(),
+    target_type: text({ enum: AUDIT_TARGET_TYPES }).notNull(),
+    target_id: text(),
+    target_label: text(),
+    batch_id: text(),
+    details: text({ mode: "json" }).$type<AuditDetails>(),
+  },
+  (table) => [
+    index("audit_events_created_at_idx").on(table.created_at),
+    index("audit_events_target_idx").on(table.target_type, table.target_id),
+    index("audit_events_actor_idx").on(table.actor_id),
+  ],
 )
 
 export const sessions = sqliteTable("sessions", {
@@ -299,6 +332,7 @@ export const schema = {
   password_reset_notifications,
   pending_redemptions,
   access_requests,
+  audit_events,
   profilesRelations,
   usersRelations,
   sessionsRelations,
@@ -324,3 +358,4 @@ export type PendingRedemption = typeof pending_redemptions.$inferSelect
 export type PasswordResetNotification =
   typeof password_reset_notifications.$inferSelect
 export type AccessRequest = typeof access_requests.$inferSelect
+export type AuditEvent = typeof audit_events.$inferSelect

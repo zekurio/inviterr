@@ -1,5 +1,7 @@
 import { and, eq, gt, isNull, lt, or } from "drizzle-orm"
 
+import { SYSTEM_AUDIT_ACTOR } from "@/lib/audit"
+import { recordAuditEvent } from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
 import { invites, pending_redemptions, users } from "@/server/db/schema"
 import { deleteUser, getAllUsers } from "@/server/jellyfin"
@@ -113,6 +115,11 @@ export async function cleanupAbandonedRedemptions(options: {
           },
           "Removed Jellyfin account left behind by an abandoned invite redemption",
         )
+        await recordAuditEvent(SYSTEM_AUDIT_ACTOR, {
+          action: "user.deleted",
+          target: { id: account.id, label: account.name },
+          details: { abandonedRedemption: true, deletedFromJellyfin: true },
+        })
       } catch (err) {
         log.error(
           { err, pendingRedemptionId: redemption.id, userId: account.id },

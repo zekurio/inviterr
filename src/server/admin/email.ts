@@ -5,6 +5,7 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import type { AuditActor } from "@/lib/audit"
 import {
   BRANDING_LOGO_MAX_HEIGHT,
   BRANDING_LOGO_MAX_WIDTH,
@@ -21,6 +22,11 @@ import type {
   SendTestEmailInput,
   UpdateEmailConfigInput,
 } from "@/server/api/schemas/common-schemas"
+import {
+  diffAuditFields,
+  recordAuditChange,
+  recordAuditEvent,
+} from "@/server/audit"
 import {
   BrandingImageValidationError,
   getBrandingImageVersion,
@@ -125,6 +131,7 @@ function toBrandingOverride(
 }
 
 export async function updateEmailConfigService(
+  actor: AuditActor,
   data: UpdateEmailConfigInput,
 ): Promise<ActionResult<EmailConfigDto>> {
   try {
@@ -132,13 +139,14 @@ export async function updateEmailConfigService(
       return error(ErrorCode.CONFIG_NOT_INITIALIZED)
     }
 
+    const existing = configManager.email
     if (!data) {
       await configManager.setEmail(undefined)
       resetEmailClient()
+      await recordEmailConfigChange(actor, existing, undefined)
       return success(projectEmailConfigDto(undefined))
     }
 
-    const existing = configManager.email
     const branding = await resolveDraftBranding(
       data.branding,
       existing?.branding,
@@ -176,6 +184,7 @@ export async function updateEmailConfigService(
     if (smtpChanged) {
       resetEmailClient()
     }
+    await recordEmailConfigChange(actor, existing, nextEmail)
 
     return success(projectEmailConfigDto(nextEmail))
   } catch (err) {
@@ -188,6 +197,38 @@ export async function updateEmailConfigService(
 
     log.error({ err }, "Failed to update email config")
     return error(ErrorCode.OPERATION_FAILED, "Failed to update email config")
+  }
+}
+
+async function recordEmailConfigChange(
+  actor: AuditActor,
+  previous: EmailConfig | undefined,
+  next: EmailConfig | undefined,
+): Promise<void> {
+  await recordAuditChange(actor, {
+    action: "settings.updated",
+    target: { id: "email" },
+    details: diffAuditFields(
+      toEmailAuditFields(previous),
+      toEmailAuditFields(next),
+      // The logo is base64 image data: too large to store and not useful.
+      ["password", "logo"],
+    ),
+  })
+}
+
+function toEmailAuditFields(email: EmailConfig | undefined) {
+  return {
+    configured: email !== undefined,
+    from: email?.from,
+    host: email?.smtp?.host,
+    port: email?.smtp?.port,
+    secure: email?.smtp?.secure,
+    username: email?.smtp?.username,
+    password: email?.smtp?.password,
+    accentColor: email?.branding?.accentColor,
+    pageBackgroundColor: email?.branding?.pageBackgroundColor,
+    logo: email?.branding?.logo?.base64,
   }
 }
 
@@ -217,6 +258,7 @@ export async function previewEmailService(
 }
 
 export async function sendTestEmailService(
+  actor: AuditActor,
   input: SendTestEmailInput,
 ): Promise<ActionResult<void>> {
   try {
@@ -237,6 +279,11 @@ export async function sendTestEmailService(
       to: input.recipient,
       ...message,
       subject: `[Test] ${message.subject}`,
+    })
+    await recordAuditEvent(actor, {
+      action: "settings.test_email_sent",
+      target: { id: "email" },
+      details: { recipient: input.recipient, messageType: input.messageType },
     })
     return success(undefined)
   } catch (err) {

@@ -8,6 +8,7 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import type { AuditActor } from "@/lib/audit"
 import { createProfileSchema, updateProfileSchema } from "@/lib/schemas"
 import { safeParse } from "@/lib/validation"
 import {
@@ -15,6 +16,12 @@ import {
   type BulkProfileResultDto,
   type BulkProfilesDto,
 } from "@/server/api/schemas/admin-schemas"
+import {
+  diffAuditFields,
+  recordAuditChange,
+  recordAuditEvent,
+  type AuditScope,
+} from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
 import {
   DEFAULT_PROFILE_POLICY,
@@ -296,6 +303,7 @@ export async function listProfilesService(): Promise<
 }
 
 export async function createProfileService(
+  actor: AuditActor,
   input: unknown,
 ): Promise<ActionResult<ProfileListItem>> {
   try {
@@ -317,6 +325,11 @@ export async function createProfileService(
       })
       .returning()
 
+    await recordAuditEvent(actor, {
+      action: "profile.created",
+      target: { id: profile.id, label: profile.name },
+    })
+
     return success(toProfileListItem(profile))
   } catch (err) {
     if (
@@ -334,6 +347,7 @@ export async function createProfileService(
 }
 
 export async function updateProfileService(
+  actor: AuditActor,
   profileId: string,
   input: unknown,
 ): Promise<ActionResult<ProfileListItem>> {
@@ -344,7 +358,7 @@ export async function updateProfileService(
       return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
     }
 
-    const updated = await db.transaction(async (tx) => {
+    const change = await db.transaction(async (tx) => {
       const [existing] = await tx
         .select()
         .from(profiles)
@@ -391,15 +405,34 @@ export async function updateProfileService(
         .where(eq(profiles.id, profileId))
         .returning()
 
-      return nextProfile
+      return { previous: existing, updated: nextProfile }
+    })
+
+    // Policy fields are flattened next to name/isDefault; nested policy
+    // values (folder lists, quotas, renewal) are recorded as changed only.
+    await recordAuditChange(actor, {
+      action: "profile.updated",
+      target: { id: change.updated.id, label: change.updated.name },
+      details: diffAuditFields(
+        {
+          name: change.previous.name,
+          isDefault: change.previous.isDefault,
+          ...change.previous.policy,
+        },
+        {
+          name: change.updated.name,
+          isDefault: change.updated.isDefault,
+          ...change.updated.policy,
+        },
+      ),
     })
 
     const shouldSyncUsers = parsed.data.policy !== undefined
     const syncFailedCount = shouldSyncUsers
-      ? await syncUsersForProfile(updated)
+      ? await syncUsersForProfile(change.updated)
       : 0
 
-    const profileItem = toProfileListItem(updated)
+    const profileItem = toProfileListItem(change.updated)
     return success(
       syncFailedCount > 0 ? { ...profileItem, syncFailedCount } : profileItem,
     )
@@ -442,6 +475,7 @@ export async function updateProfileService(
 }
 
 export async function bulkManageProfilesService(
+  actor: AuditActor,
   input: StaticEncode<typeof bulkProfilesSchema>,
 ): Promise<ActionResult<BulkProfilesDto>> {
   const parsed = safeParse(bulkProfilesSchema, input)
@@ -453,15 +487,17 @@ export async function bulkManageProfilesService(
 
   // Sequential on purpose: each delete re-reads profile state, so the
   // last-profile and default-profile guards stay accurate as the set shrinks.
+  const audit = { actor, batchId: crypto.randomUUID() }
   const results: BulkProfileResultDto[] = []
   for (const profileId of parsed.data.profileIds) {
-    results.push(await applyBulkProfileDelete(profileId))
+    results.push(await applyBulkProfileDelete(audit, profileId))
   }
 
   return success({ results })
 }
 
 async function applyBulkProfileDelete(
+  audit: AuditScope,
   profileId: string,
 ): Promise<BulkProfileResultDto> {
   const [existing] = await db
@@ -479,7 +515,11 @@ async function applyBulkProfileDelete(
   }
 
   try {
-    const result = await deleteProfileService(profileId)
+    const result = await deleteProfileService(
+      audit.actor,
+      profileId,
+      audit.batchId,
+    )
     if (!result.success) {
       return {
         profileId,
@@ -504,7 +544,9 @@ async function applyBulkProfileDelete(
 }
 
 export async function deleteProfileService(
+  actor: AuditActor,
   profileId: string,
+  batchId?: string,
 ): Promise<ActionResult<null>> {
   await ensureMigrated()
 
@@ -563,6 +605,16 @@ export async function deleteProfileService(
     }
 
     await tx.delete(profiles).where(eq(profiles.id, profileId))
+  })
+
+  await recordAuditEvent(actor, {
+    action: "profile.deleted",
+    target: { id: profileId, label: existing.name },
+    details: {
+      reassignedUsers: affectedUsers.length,
+      reassignedTo: defaultProfile.name,
+    },
+    batchId,
   })
 
   if (affectedUsers.length > 0) {

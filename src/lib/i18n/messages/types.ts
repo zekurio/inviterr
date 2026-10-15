@@ -629,6 +629,68 @@ export interface Messages {
     bulkOperationFailed: string
     bulkOperationNoChanges: string
   }
+  audit: {
+    loadFailed: string
+    empty: string
+    eventCountSingle: string
+    eventCountPlural: string
+    actorFilterPlaceholder: string
+    targetFilterPlaceholder: string
+    time: string
+    actor: string
+    action: string
+    target: string
+    details: string
+    allActorTypes: string
+    allTargetTypes: string
+    allActions: string
+    actorTypeAdmin: string
+    actorTypeUser: string
+    actorTypeSystem: string
+    targetTypeInvite: string
+    targetTypeUser: string
+    targetTypeProfile: string
+    targetTypeSettings: string
+    targetTypeAccessRequest: string
+    anyDate: string
+    clearFilters: string
+    bulkAction: string
+    showBulkAction: string
+    filterByActor: string
+    filterByTarget: string
+    changed: string
+    retentionDays: string
+    retentionForever: string
+    retentionTitle: string
+    retentionDescription: string
+    retentionLabel: string
+    retentionInvalid: string
+    retentionSaved: string
+    retentionSaveFailed: string
+    actions: {
+      inviteCreated: string
+      inviteUpdated: string
+      inviteDeleted: string
+      inviteRedeemed: string
+      inviteReconciled: string
+      userImported: string
+      userUpdated: string
+      userDeleted: string
+      userSeerrSynced: string
+      userExpired: string
+      userRenewed: string
+      userEmailVerified: string
+      userPasswordChanged: string
+      userPasswordReset: string
+      profileCreated: string
+      profileUpdated: string
+      profileDeleted: string
+      settingsUpdated: string
+      settingsTestEmailSent: string
+      accessRequestApproved: string
+      accessRequestDenied: string
+    }
+  }
   onboarding: {
     title: string
     keyDescription: string
@@ -843,6 +905,7 @@ export interface Messages {
     invites: string
     profiles: string
     history: string
+    audit: string
     settings: string
     profile: string
     administrator: string

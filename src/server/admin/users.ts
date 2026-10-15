@@ -8,6 +8,7 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import type { AuditActor } from "@/lib/audit"
 import { normalizeEmail, updateManagedUserSchema } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import { safeParse, stringSchema } from "@/lib/validation"
@@ -18,6 +19,12 @@ import {
   type BulkManagedUserResultDto,
   type BulkManagedUsersDto,
 } from "@/server/api/schemas/admin-schemas"
+import {
+  diffAuditFields,
+  recordAuditChange,
+  recordAuditEvent,
+  type AuditScope,
+} from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
 import { profiles, users } from "@/server/db/schema"
 import {
@@ -501,6 +508,7 @@ function releaseActiveAdmin(
 }
 
 async function deleteManagedUserAcrossSystems(
+  audit: AuditScope,
   userId: string,
   dbUser: DbUserRow | undefined,
   jellyfinUser: JellyfinUserListItem | null,
@@ -508,6 +516,18 @@ async function deleteManagedUserAcrossSystems(
   let failedStage: ManagedUserDeletionStage = "sessions"
   let deletedFromJellyfin = false
   let deletedFromSeerr = false
+  const recordDeletion = (stoppedAt?: ManagedUserDeletionStage) =>
+    recordAuditEvent(audit.actor, {
+      action: "user.deleted",
+      target: { id: userId, label: jellyfinUser?.name ?? dbUser?.email },
+      details: {
+        email: dbUser?.email ?? null,
+        deletedFromJellyfin,
+        deletedFromSeerr,
+        ...(stoppedAt ? { failedStage: stoppedAt } : {}),
+      },
+      batchId: audit.batchId,
+    })
 
   try {
     await revokeAllUserSessions(userId)
@@ -528,6 +548,8 @@ async function deleteManagedUserAcrossSystems(
     if (dbUser) {
       await deleteAppUserData(dbUser.userId)
     }
+
+    await recordDeletion()
 
     return {
       success: true,
@@ -552,6 +574,11 @@ async function deleteManagedUserAcrossSystems(
         deletedFromSeerr,
       },
     )
+    // Jellyfin and Seerr deletions cannot be undone, so a deletion that stops
+    // at a later stage is still recorded; a retry records the remaining cleanup.
+    if (deletedFromJellyfin || deletedFromSeerr) {
+      await recordDeletion(failedStage)
+    }
     return {
       success: false,
       code,
@@ -566,6 +593,7 @@ async function deleteManagedUserAcrossSystems(
 }
 
 export async function bulkManageUsersService(
+  actor: AuditActor,
   input: StaticEncode<typeof bulkManagedUsersSchema>,
 ): Promise<ActionResult<BulkManagedUsersDto>> {
   const parsed = safeParse(bulkManagedUsersSchema, input)
@@ -586,12 +614,14 @@ export async function bulkManageUsersService(
       (user) => user.isAdmin && !user.isDisabled,
     ).length,
   }
+  const audit = { actor, batchId: crypto.randomUUID() }
 
   const results = await runWithConcurrency(
     parsed.data.userIds,
     3,
     async (userId) =>
       applyBulkManagedUserOperation(
+        audit,
         userId,
         parsed.data.operation,
         parsed.data.updates,
@@ -604,6 +634,7 @@ export async function bulkManageUsersService(
 }
 
 async function applyBulkManagedUserOperation(
+  audit: AuditScope,
   userId: string,
   operation: BulkManagedUserOperation,
   updates: ManagedUserUpdateInput | undefined,
@@ -627,6 +658,7 @@ async function applyBulkManagedUserOperation(
         return bulkSkippedResult(userId, operation, "no_changes")
       }
       return applyBulkManagedUserUpdate(
+        audit,
         userId,
         operation,
         updates ?? {},
@@ -642,6 +674,7 @@ async function applyBulkManagedUserOperation(
         return bulkSkippedResult(userId, operation, "already_disabled")
       }
       return applyBulkManagedUserUpdate(
+        audit,
         userId,
         operation,
         { isDisabled: true },
@@ -656,6 +689,7 @@ async function applyBulkManagedUserOperation(
         return bulkSkippedResult(userId, operation, "already_enabled")
       }
       return applyBulkManagedUserUpdate(
+        audit,
         userId,
         operation,
         { isDisabled: false },
@@ -663,13 +697,14 @@ async function applyBulkManagedUserOperation(
         lastAdminGuard,
       )
     case "delete":
-      return applyBulkManagedUserDelete(userId, context, lastAdminGuard)
+      return applyBulkManagedUserDelete(audit, userId, context, lastAdminGuard)
     case "syncSeerr":
-      return applyBulkManagedUserSeerrSync(userId, context)
+      return applyBulkManagedUserSeerrSync(audit, userId, context)
   }
 }
 
 async function applyBulkManagedUserUpdate(
+  audit: AuditScope,
   userId: string,
   operation: "assignProfile" | "disable" | "enable",
   updates: ManagedUserUpdateInput,
@@ -678,6 +713,7 @@ async function applyBulkManagedUserUpdate(
 ): Promise<BulkManagedUserResultDto> {
   try {
     const result = await updatePreparedManagedUser(
+      audit,
       userId,
       updates,
       context,
@@ -700,6 +736,7 @@ async function applyBulkManagedUserUpdate(
 }
 
 async function updatePreparedManagedUser(
+  audit: AuditScope,
   userId: string,
   input: ManagedUserUpdateInput,
   context: PreparedUserContext,
@@ -872,6 +909,22 @@ async function updatePreparedManagedUser(
         : {}),
     })
     .where(eq(users.userId, userId))
+  await recordManagedUserUpdate(
+    audit,
+    {
+      dbUser,
+      jellyfinUser,
+      profileName: effectiveState.currentProfileName,
+    },
+    {
+      userId,
+      profileName: effectiveState.effectiveProfileName,
+      email: normalizedEmail,
+      emailVerified,
+      isDisabled: effectiveState.isDisabled,
+      expiresAt: nextExpiresAt,
+    },
+  )
 
   if (
     configManager.seerr &&
@@ -918,7 +971,6 @@ async function updatePreparedManagedUser(
   const isDisabled = shouldEnforceExpiredAccess
     ? true
     : effectiveState.isDisabled
-
   return success({
     userId,
     profileId: jellyfinUser?.isAdmin ? null : effectiveState.assignedProfileId,
@@ -927,6 +979,51 @@ async function updatePreparedManagedUser(
     emailVerified,
     isDisabled,
     expiresAt: nextExpiresAt?.toISOString() ?? null,
+  })
+}
+
+// Shared by the single and bulk update paths so both record the same fields.
+// Called once the database write commits, before Seerr sync or expiry
+// enforcement can still fail; an expiry disablement records its own event.
+async function recordManagedUserUpdate(
+  audit: AuditScope,
+  before: {
+    dbUser: DbUserRow | undefined
+    jellyfinUser: JellyfinUserListItem | null
+    profileName: string | null
+  },
+  after: {
+    userId: string
+    profileName: string | null
+    email: string | null
+    emailVerified: boolean
+    isDisabled: boolean
+    expiresAt: Date | null
+  },
+): Promise<void> {
+  await recordAuditChange(audit.actor, {
+    action: "user.updated",
+    target: {
+      id: after.userId,
+      label: before.jellyfinUser?.name ?? before.dbUser?.email,
+    },
+    details: diffAuditFields(
+      {
+        profile: before.profileName,
+        email: before.dbUser?.email,
+        emailVerified: before.dbUser?.emailVerified ?? false,
+        isDisabled: before.jellyfinUser?.isDisabled ?? true,
+        expiresAt: before.dbUser?.expiresAt,
+      },
+      {
+        profile: after.profileName,
+        email: after.email,
+        emailVerified: after.emailVerified,
+        isDisabled: after.isDisabled,
+        expiresAt: after.expiresAt,
+      },
+    ),
+    batchId: audit.batchId,
   })
 }
 
@@ -957,6 +1054,7 @@ function deriveEffectiveUserState({
 
   return {
     assignedProfileId: updatedProfile?.id ?? currentProfileId,
+    currentProfileName,
     effectiveProfileName: updatedProfile?.name ?? currentProfileName,
     isDisabled: isDisabledUpdate ?? jellyfinUser?.isDisabled ?? true,
     nextExpiresAt,
@@ -965,6 +1063,7 @@ function deriveEffectiveUserState({
 }
 
 async function applyBulkManagedUserDelete(
+  audit: AuditScope,
   userId: string,
   context: PreparedUserContext,
   lastAdminGuard: LastAdminGuard,
@@ -984,6 +1083,7 @@ async function applyBulkManagedUserDelete(
   }
 
   const deletion = await deleteManagedUserAcrossSystems(
+    audit,
     userId,
     dbUser,
     jellyfinUser,
@@ -1004,6 +1104,7 @@ async function applyBulkManagedUserDelete(
 }
 
 async function applyBulkManagedUserSeerrSync(
+  audit: AuditScope,
   userId: string,
   context: PreparedUserContext,
 ): Promise<BulkManagedUserResultDto> {
@@ -1020,6 +1121,12 @@ async function applyBulkManagedUserSeerrSync(
   if (!result.success) {
     return bulkFailureFromActionResult(userId, "syncSeerr", result)
   }
+
+  await recordAuditEvent(audit.actor, {
+    action: "user.seerr_synced",
+    target: { id: userId, label: context.jellyfinUsersById.get(userId)?.name },
+    batchId: audit.batchId,
+  })
 
   return {
     userId,
@@ -1097,6 +1204,7 @@ async function syncPreparedUserToSeerr(
 }
 
 export async function updateManagedUserService(
+  actor: AuditActor,
   userId: string,
   input: StaticDecode<typeof updateManagedUserSchema>,
 ): Promise<ActionResult<UpdateManagedUserResult>> {
@@ -1294,6 +1402,22 @@ export async function updateManagedUserService(
         : {}),
     })
     .where(eq(users.userId, parsedUserId.data))
+  await recordManagedUserUpdate(
+    { actor },
+    {
+      dbUser,
+      jellyfinUser,
+      profileName: effectiveState.currentProfileName,
+    },
+    {
+      userId: parsedUserId.data,
+      profileName: effectiveState.effectiveProfileName,
+      email: normalizedEmail,
+      emailVerified,
+      isDisabled: effectiveState.isDisabled,
+      expiresAt: nextExpiresAt,
+    },
+  )
 
   if (
     configManager.seerr &&
@@ -1340,7 +1464,6 @@ export async function updateManagedUserService(
   const isDisabled = shouldEnforceExpiredAccess
     ? true
     : effectiveState.isDisabled
-
   return success({
     userId: parsedUserId.data,
     profileId: jellyfinUser?.isAdmin ? null : effectiveState.assignedProfileId,
@@ -1353,6 +1476,7 @@ export async function updateManagedUserService(
 }
 
 export async function syncUserToSeerrService(
+  actor: AuditActor,
   userId: string,
 ): Promise<ActionResult<{ synced: boolean }>> {
   const parsedUserId = safeParse(userIdSchema, userId)
@@ -1450,10 +1574,16 @@ export async function syncUserToSeerrService(
     .set({ seerrSyncedAt: new Date() })
     .where(eq(users.userId, parsedUserId.data))
 
+  await recordAuditEvent(actor, {
+    action: "user.seerr_synced",
+    target: { id: parsedUserId.data, label: jellyfinUser.name },
+  })
+
   return success({ synced: true })
 }
 
 export async function deleteManagedUserService(
+  actor: AuditActor,
   userId: string,
 ): Promise<ActionResult<DeleteManagedUserResult>> {
   const parsedUserId = safeParse(userIdSchema, userId)
@@ -1491,6 +1621,7 @@ export async function deleteManagedUserService(
     }
 
     const deletion = await deleteManagedUserAcrossSystems(
+      { actor },
       parsedUserId.data,
       dbUser,
       jellyfinUser,

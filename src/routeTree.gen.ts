@@ -31,6 +31,7 @@ import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settin
 import { Route as DashboardProfilesRouteImport } from './routes/dashboard.profiles'
 import { Route as DashboardInvitesRouteImport } from './routes/dashboard.invites'
 import { Route as DashboardHistoryRouteImport } from './routes/dashboard.history'
+import { Route as DashboardAuditRouteImport } from './routes/dashboard.audit'
 import { Route as BrandingAssetRouteImport } from './routes/branding.$asset'
 import { Route as DashboardSettingsIndexRouteImport } from './routes/dashboard.settings.index'
 import { Route as DashboardSettingsSettingsTabRouteImport } from './routes/dashboard.settings.$settingsTab'
@@ -145,6 +146,11 @@ const DashboardHistoryRoute = DashboardHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardAuditRoute = DashboardAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const BrandingAssetRoute = BrandingAssetRouteImport.update({
   id: '/branding/$asset',
   path: '/branding/$asset',
@@ -175,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/request-access': typeof RequestAccessRoute
   '/reset-password': typeof ResetPasswordRoute
   '/branding/$asset': typeof BrandingAssetRoute
+  '/dashboard/audit': typeof DashboardAuditRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/invites': typeof DashboardInvitesRoute
   '/dashboard/profiles': typeof DashboardProfilesRoute
@@ -200,6 +207,7 @@ export interface FileRoutesByTo {
   '/request-access': typeof RequestAccessRoute
   '/reset-password': typeof ResetPasswordRoute
   '/branding/$asset': typeof BrandingAssetRoute
+  '/dashboard/audit': typeof DashboardAuditRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/invites': typeof DashboardInvitesRoute
   '/dashboard/profiles': typeof DashboardProfilesRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   '/request-access': typeof RequestAccessRoute
   '/reset-password': typeof ResetPasswordRoute
   '/branding/$asset': typeof BrandingAssetRoute
+  '/dashboard/audit': typeof DashboardAuditRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/invites': typeof DashboardInvitesRoute
   '/dashboard/profiles': typeof DashboardProfilesRoute
@@ -256,6 +265,7 @@ export interface FileRouteTypes {
     | '/request-access'
     | '/reset-password'
     | '/branding/$asset'
+    | '/dashboard/audit'
     | '/dashboard/history'
     | '/dashboard/invites'
     | '/dashboard/profiles'
@@ -281,6 +291,7 @@ export interface FileRouteTypes {
     | '/request-access'
     | '/reset-password'
     | '/branding/$asset'
+    | '/dashboard/audit'
     | '/dashboard/history'
     | '/dashboard/invites'
     | '/dashboard/profiles'
@@ -307,6 +318,7 @@ export interface FileRouteTypes {
     | '/request-access'
     | '/reset-password'
     | '/branding/$asset'
+    | '/dashboard/audit'
     | '/dashboard/history'
     | '/dashboard/invites'
     | '/dashboard/profiles'
@@ -496,6 +508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardHistoryRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/audit': {
+      id: '/dashboard/audit'
+      path: '/audit'
+      fullPath: '/dashboard/audit'
+      preLoaderRoute: typeof DashboardAuditRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/branding/$asset': {
       id: '/branding/$asset'
       path: '/branding/$asset'
@@ -534,6 +553,7 @@ const DashboardSettingsRouteWithChildren =
   DashboardSettingsRoute._addFileChildren(DashboardSettingsRouteChildren)
 
 interface DashboardRouteChildren {
+  DashboardAuditRoute: typeof DashboardAuditRoute
   DashboardHistoryRoute: typeof DashboardHistoryRoute
   DashboardInvitesRoute: typeof DashboardInvitesRoute
   DashboardProfilesRoute: typeof DashboardProfilesRoute
@@ -543,6 +563,7 @@ interface DashboardRouteChildren {
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardAuditRoute: DashboardAuditRoute,
   DashboardHistoryRoute: DashboardHistoryRoute,
   DashboardInvitesRoute: DashboardInvitesRoute,
   DashboardProfilesRoute: DashboardProfilesRoute,

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { TEST_ADMIN_ACTOR } from "@/test/audit"
 import {
   configureTestEnvironment,
   createTestDatabase,
@@ -52,10 +53,13 @@ describe("bulkManageProfilesService", () => {
       },
     ])
 
-    const result = await setup.profilesService.bulkManageProfilesService({
-      operation: "delete",
-      profileIds: [extraProfileId, defaultProfileId, missingProfileId],
-    })
+    const result = await setup.profilesService.bulkManageProfilesService(
+      TEST_ADMIN_ACTOR,
+      {
+        operation: "delete",
+        profileIds: [extraProfileId, defaultProfileId, missingProfileId],
+      },
+    )
 
     expect(result.success).toBe(true)
     if (!result.success) {
@@ -96,10 +100,13 @@ describe("bulkManageProfilesService", () => {
       policy: setup.schema.DEFAULT_PROFILE_POLICY,
     })
 
-    const result = await setup.profilesService.bulkManageProfilesService({
-      operation: "delete",
-      profileIds: [onlyProfileId],
-    })
+    const result = await setup.profilesService.bulkManageProfilesService(
+      TEST_ADMIN_ACTOR,
+      {
+        operation: "delete",
+        profileIds: [onlyProfileId],
+      },
+    )
 
     expect(result.success).toBe(true)
     if (!result.success) {
@@ -142,10 +149,13 @@ describe("bulkManageProfilesService", () => {
       profileId: usedProfileId,
     })
 
-    const result = await setup.profilesService.bulkManageProfilesService({
-      operation: "delete",
-      profileIds: [usedProfileId],
-    })
+    const result = await setup.profilesService.bulkManageProfilesService(
+      TEST_ADMIN_ACTOR,
+      {
+        operation: "delete",
+        profileIds: [usedProfileId],
+      },
+    )
 
     expect(result.success).toBe(true)
     if (!result.success) {

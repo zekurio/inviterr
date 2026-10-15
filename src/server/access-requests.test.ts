@@ -629,6 +629,60 @@ describe("access request review", () => {
     )
   })
 
+  it("records approvals, denials, and settings changes as the acting admin", async () => {
+    const app = await setup()
+    await app.seedProfile("Members", true)
+    const guests = await app.seedProfile("Guests")
+    const approved = await app.seedRequest("approved@example.com")
+    const denied = await app.seedRequest("denied@example.com")
+    const admin = app.client({ session: adminSession })
+
+    await admin.admin.accessRequests.approve({ requestId: approved.id })
+    await admin.admin.accessRequests.deny({
+      requestId: denied.id,
+      notify: false,
+    })
+    await admin.admin.settings.updateAccessRequests({
+      enabled: true,
+      profileId: guests.id,
+    })
+
+    const [invite] = await app.listInvites()
+    const actor = {
+      actor_type: "admin",
+      actor_id: adminSession.userId,
+      actor_name: adminSession.name,
+    }
+    expect(await app.database.db.query.audit_events.findMany()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ...actor,
+          action: "access_request.approved",
+          target_type: "access_request",
+          target_id: approved.id,
+          target_label: "approved@example.com",
+          details: expect.objectContaining({
+            invite: invite?.code,
+            profile: "Members",
+          }),
+        }),
+        expect.objectContaining({
+          ...actor,
+          action: "access_request.denied",
+          target_id: denied.id,
+          target_label: "denied@example.com",
+          details: { notified: false },
+        }),
+        expect.objectContaining({
+          ...actor,
+          action: "settings.updated",
+          target_id: "accessRequests",
+          details: { profile: { from: null, to: "Guests" } },
+        }),
+      ]),
+    )
+  })
+
   it("only enables the feature when email delivery is ready", async () => {
     const app = await setup()
     const guests = await app.seedProfile("Guests")

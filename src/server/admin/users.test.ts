@@ -7,6 +7,7 @@ import type {
   ensureUserRecord,
   syncUsersWithJellyfin,
 } from "@/server/user-lifecycle"
+import { TEST_ADMIN_ACTOR } from "@/test/audit"
 import {
   configureTestEnvironment,
   createTestDatabase,
@@ -181,10 +182,13 @@ describe("bulkManageUsersService", () => {
     ])
     vi.mocked(setup.jellyfinAdmin.updateUserPolicy).mockResolvedValue()
 
-    const result = await setup.usersService.bulkManageUsersService({
-      operation: "disable",
-      userIds: ["admin-1", "admin-2", "disabled-user"],
-    })
+    const result = await setup.usersService.bulkManageUsersService(
+      TEST_ADMIN_ACTOR,
+      {
+        operation: "disable",
+        userIds: ["admin-1", "admin-2", "disabled-user"],
+      },
+    )
 
     expect(result.success).toBe(true)
     if (!result.success) {
@@ -234,6 +238,7 @@ describe("deleteManagedUserService", () => {
     vi.mocked(setup.userLifecycle.deleteLinkedSeerrUser).mockResolvedValue(true)
 
     const result = await setup.usersService.deleteManagedUserService(
+      TEST_ADMIN_ACTOR,
       managedDbUser.userId,
     )
 
@@ -276,6 +281,7 @@ describe("deleteManagedUserService", () => {
     )
 
     const failed = await setup.usersService.deleteManagedUserService(
+      TEST_ADMIN_ACTOR,
       managedDbUser.userId,
     )
 
@@ -295,6 +301,7 @@ describe("deleteManagedUserService", () => {
     ).toBeNull()
 
     const retried = await setup.usersService.deleteManagedUserService(
+      TEST_ADMIN_ACTOR,
       managedDbUser.userId,
     )
 
@@ -316,6 +323,7 @@ describe("deleteManagedUserService", () => {
     )
 
     const failed = await setup.usersService.deleteManagedUserService(
+      TEST_ADMIN_ACTOR,
       managedDbUser.userId,
     )
 
@@ -332,8 +340,10 @@ describe("deleteManagedUserService", () => {
     expect(
       (await setup.database.db.query.sessions.findFirst())?.revokedAt,
     ).toBeInstanceOf(Date)
+    expect(await setup.database.db.query.audit_events.findMany()).toEqual([])
 
     const retried = await setup.usersService.deleteManagedUserService(
+      TEST_ADMIN_ACTOR,
       managedDbUser.userId,
     )
 
@@ -355,6 +365,7 @@ describe("deleteManagedUserService", () => {
       .mockResolvedValue(false)
 
     const failed = await setup.usersService.deleteManagedUserService(
+      TEST_ADMIN_ACTOR,
       managedDbUser.userId,
     )
 
@@ -371,8 +382,23 @@ describe("deleteManagedUserService", () => {
     expect(
       (await setup.database.db.query.sessions.findFirst())?.revokedAt,
     ).toBeInstanceOf(Date)
+    // The Jellyfin account is already gone, so the stopped deletion is audited.
+    expect(await setup.database.db.query.audit_events.findMany()).toEqual([
+      expect.objectContaining({
+        actor_id: TEST_ADMIN_ACTOR.id,
+        action: "user.deleted",
+        target_id: managedDbUser.userId,
+        details: {
+          email: managedDbUser.email,
+          deletedFromJellyfin: true,
+          deletedFromSeerr: false,
+          failedStage: "seerr",
+        },
+      }),
+    ])
 
     const retried = await setup.usersService.deleteManagedUserService(
+      TEST_ADMIN_ACTOR,
       managedDbUser.userId,
     )
 
@@ -406,6 +432,7 @@ describe("deleteManagedUserService", () => {
     )
 
     const failed = await setup.usersService.deleteManagedUserService(
+      TEST_ADMIN_ACTOR,
       managedDbUser.userId,
     )
 
@@ -424,6 +451,7 @@ describe("deleteManagedUserService", () => {
     ).toBeInstanceOf(Date)
 
     const retried = await setup.usersService.deleteManagedUserService(
+      TEST_ADMIN_ACTOR,
       managedDbUser.userId,
     )
 
@@ -446,6 +474,7 @@ describe("deleteManagedUserService", () => {
     ])
 
     const result = await setup.usersService.deleteManagedUserService(
+      TEST_ADMIN_ACTOR,
       managedDbUser.userId,
     )
 

@@ -1,6 +1,12 @@
 import { Type, type StaticDecode, type StaticEncode } from "typebox"
 
 import { ErrorCode } from "@/lib/api/contracts/errors"
+import {
+  AUDIT_ACTIONS,
+  AUDIT_ACTOR_TYPES,
+  AUDIT_RETENTION_MAX_DAYS,
+  AUDIT_TARGET_TYPES,
+} from "@/lib/audit"
 import { INVITE_ACCESS_DURATION_MAX_DAYS } from "@/lib/schemas"
 import {
   defaulted,
@@ -80,6 +86,29 @@ export const inviteHistoryPageInputSchema = Type.Decode(
     direction: value.direction ?? "desc",
   }),
 )
+
+export const auditEventsPageInputSchema = Type.Decode(
+  Type.Object({
+    ...pageProperties,
+    actorType: Type.Optional(enumValues(AUDIT_ACTOR_TYPES)),
+    actor: Type.Optional(trimmedString({ maxLength: 100 })),
+    action: Type.Optional(enumValues(AUDIT_ACTIONS)),
+    targetType: Type.Optional(enumValues(AUDIT_TARGET_TYPES)),
+    target: Type.Optional(trimmedString({ maxLength: 100 })),
+    batch: Type.Optional(UuidStringSchema),
+    from: Type.Optional(DateTimeStringSchema),
+    to: Type.Optional(DateTimeStringSchema),
+  }),
+  (value) => ({
+    ...value,
+    page: value.page ?? 1,
+    pageSize: value.pageSize ?? 50,
+  }),
+)
+
+export const updateAuditRetentionSchema = Type.Object({
+  retentionDays: boundedIntSchema(0, AUDIT_RETENTION_MAX_DAYS),
+})
 
 export const invitesPageInputSchema = Type.Decode(
   Type.Object({
@@ -324,6 +353,45 @@ export const pagedInviteHistoryResponseSchema = Type.Object({
   pageSize: boundedIntSchema(1, 100),
   total: NonNegativeIntSchema,
   pageCount: NonNegativeIntSchema,
+})
+
+const auditScalarSchema = Type.Union([
+  Type.String(),
+  Type.Number(),
+  Type.Boolean(),
+  Type.Null(),
+])
+
+export const auditEventSchema = Type.Object({
+  id: AnyStringSchema,
+  createdAt: DateTimeStringSchema,
+  actorType: enumValues(AUDIT_ACTOR_TYPES),
+  actorId: NullableStringSchema,
+  actorName: NullableStringSchema,
+  action: enumValues(AUDIT_ACTIONS),
+  targetType: enumValues(AUDIT_TARGET_TYPES),
+  targetId: NullableStringSchema,
+  targetLabel: NullableStringSchema,
+  batchId: NullableStringSchema,
+  details: nullable(
+    Type.Record(
+      Type.String(),
+      Type.Union([
+        auditScalarSchema,
+        Type.Object({ from: auditScalarSchema, to: auditScalarSchema }),
+        Type.Object({ changed: Type.Literal(true) }),
+      ]),
+    ),
+  ),
+})
+
+export const pagedAuditEventsResponseSchema = Type.Object({
+  items: Type.Array(auditEventSchema),
+  page: boundedIntSchema(1, Number.MAX_SAFE_INTEGER),
+  pageSize: boundedIntSchema(1, 100),
+  total: NonNegativeIntSchema,
+  pageCount: NonNegativeIntSchema,
+  retentionDays: boundedIntSchema(0, AUDIT_RETENTION_MAX_DAYS),
 })
 
 export const pagedInvitesResponseSchema = Type.Object({
@@ -615,6 +683,17 @@ export type InviteHistoryPageInputDto = StaticEncode<
   typeof inviteHistoryPageInputSchema
 >
 export type InvitesPageInputDto = StaticEncode<typeof invitesPageInputSchema>
+export type AuditEventsPageInputDto = StaticEncode<
+  typeof auditEventsPageInputSchema
+>
+export type AuditEventFiltersDto = Omit<
+  StaticDecode<typeof auditEventsPageInputSchema>,
+  "page" | "pageSize"
+>
+export type AuditEventDto = StaticDecode<typeof auditEventSchema>
+export type PagedAuditEventsDto = StaticDecode<
+  typeof pagedAuditEventsResponseSchema
+>
 export type UsersPageInputDto = StaticEncode<typeof usersPageInputSchema>
 export type PagedInviteHistoryDto = StaticDecode<
   typeof pagedInviteHistoryResponseSchema
