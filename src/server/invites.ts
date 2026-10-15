@@ -38,9 +38,11 @@ import {
   createAdminApi,
   createUser,
   deleteUser,
+  getAllUsers,
   isUsernameTaken,
   uploadUserAvatar,
 } from "@/server/jellyfin"
+import { JellyfinApiError } from "@/server/jellyfin/client"
 import { getMediaServerName } from "@/server/jellyfin/display-name"
 import { logger } from "@/server/logger"
 import {
@@ -320,6 +322,41 @@ async function compensateInviteRedemption(input: {
   }
 }
 
+// Jellyfin commits a new account before it responds, so a lost response, a
+// timeout or a failure inside Jellyfin after the insert can leave an account
+// we never got the ID of. The username check passed just before the create,
+// so an account with that name now is ours; adopting it lets the normal
+// flow (password change, profile, sign-in or compensation) finish instead
+// of leaving the account to squat the username with no local record. A
+// 4xx means Jellyfin rejected the request without creating anything.
+async function recoverCreatedUser(
+  username: string,
+  createError: unknown,
+): Promise<{ id: string; name: string; isAdmin: boolean } | null> {
+  if (createError instanceof JellyfinApiError && createError.statusCode < 500) {
+    return null
+  }
+
+  try {
+    const existing = (await getAllUsers()).find(
+      (user) => user.name.toLowerCase() === username.toLowerCase(),
+    )
+    if (!existing) return null
+
+    logger.warn(
+      { err: createError, userId: existing.id, username: existing.name },
+      "Jellyfin user creation failed but the account exists; continuing with it",
+    )
+    return { id: existing.id, name: existing.name, isAdmin: existing.isAdmin }
+  } catch (err) {
+    logger.error(
+      { err, username },
+      "Failed to look up the Jellyfin user after a failed creation",
+    )
+    return null
+  }
+}
+
 export async function redeemInvite(
   input: StaticDecode<typeof redeemInviteSchema>,
 ): Promise<
@@ -462,13 +499,24 @@ export async function redeemInvite(
     // those writes can still leave an account without one.
     const stagingPassword =
       invite.access_duration_days === null ? null : generateSecureToken()
+    let usernameTaken: boolean
+    try {
+      usernameTaken = await isUsernameTaken(parsed.data.username)
+    } catch (err) {
+      logger.error(
+        { err, username: parsed.data.username },
+        "Failed to check whether the username is taken",
+      )
+      await releaseInviteReservation(inviteId)
+      return error(ErrorCode.JELLYFIN_ERROR, "Failed to create user account")
+    }
+    if (usernameTaken) {
+      await releaseInviteReservation(inviteId)
+      return error(ErrorCode.USERNAME_TAKEN)
+    }
+
     let jellyfinUser: { id: string; name: string; isAdmin: boolean }
     try {
-      if (await isUsernameTaken(parsed.data.username)) {
-        await releaseInviteReservation(inviteId)
-        return error(ErrorCode.USERNAME_TAKEN)
-      }
-
       jellyfinUser = await createUser(
         parsed.data.username,
         stagingPassword ?? parsed.data.password,
@@ -478,12 +526,16 @@ export async function redeemInvite(
         "Created Jellyfin user",
       )
     } catch (err) {
-      logger.error(
-        { err, username: parsed.data.username },
-        "Failed to create Jellyfin user",
-      )
-      await releaseInviteReservation(inviteId)
-      return error(ErrorCode.JELLYFIN_ERROR, "Failed to create user account")
+      const recoveredUser = await recoverCreatedUser(parsed.data.username, err)
+      if (!recoveredUser) {
+        logger.error(
+          { err, username: parsed.data.username },
+          "Failed to create Jellyfin user",
+        )
+        await releaseInviteReservation(inviteId)
+        return error(ErrorCode.JELLYFIN_ERROR, "Failed to create user account")
+      }
+      jellyfinUser = recoveredUser
     }
 
     // Record the account with its access expiry before the applicant's

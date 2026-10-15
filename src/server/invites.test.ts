@@ -243,6 +243,7 @@ async function connectFakeJellyfin(
     lostResponses?: string[]
     failDeletes?: boolean
     onPasswordChange?: () => Promise<void>
+    onCreate?: () => void
   } = {},
 ) {
   const actualJellyfin =
@@ -264,6 +265,12 @@ async function connectFakeJellyfin(
   vi.mocked(setup.jellyfin.deleteUser).mockImplementation(
     actualJellyfin.deleteUser,
   )
+  vi.mocked(setup.jellyfin.getAllUsers).mockImplementation(
+    actualJellyfin.getAllUsers,
+  )
+  vi.mocked(setup.jellyfin.isUsernameTaken).mockImplementation(
+    actualJellyfin.isUsernameTaken,
+  )
 
   const accounts = new Map<
     string,
@@ -282,6 +289,16 @@ async function connectFakeJellyfin(
   ): Promise<Response> {
     const account = accounts.get(request.userId ?? "")
 
+    if (request.method === "GET" && request.path === "/Users") {
+      return Response.json(
+        [...accounts.values()].map((user) => ({
+          Id: user.id,
+          Name: user.name,
+          HasPassword: user.password !== null,
+        })),
+      )
+    }
+
     if (request.method === "POST" && request.path === "/Users/New") {
       const created = {
         id: `jellyfin-user-${accounts.size + 1}`,
@@ -292,6 +309,7 @@ async function connectFakeJellyfin(
             : null,
       }
       accounts.set(created.id, created)
+      faults.onCreate?.()
       return Response.json({ Id: created.id, Name: created.name })
     }
 
@@ -499,8 +517,12 @@ describe("redeemInvite", () => {
     expect(localUser).toMatchObject({ expiresAt: null })
     expect(
       jellyfin.requests.map((request) => `${request.method} ${request.path}`),
-    ).toEqual(["POST /Users/New", "POST /Users/AuthenticateByName"])
-    expect(jellyfin.requests[0]?.body).toEqual({
+    ).toEqual([
+      "GET /Users",
+      "POST /Users/New",
+      "POST /Users/AuthenticateByName",
+    ])
+    expect(jellyfin.requests[1]?.body).toEqual({
       Name: "test-user",
       Password: redeemInput.password,
     })
@@ -525,13 +547,14 @@ describe("redeemInvite", () => {
     })
 
     const result = await setup.inviteService.redeemInvite(redeemInput)
-    const [createRequest, passwordRequest] = jellyfin.requests
+    const [, createRequest, passwordRequest] = jellyfin.requests
     const stagingPassword = createRequest?.body.Password
 
     expect(result).toMatchObject({ success: true })
     expect(
       jellyfin.requests.map((request) => `${request.method} ${request.path}`),
     ).toEqual([
+      "GET /Users",
       "POST /Users/New",
       "POST /Users/Password",
       "POST /Users/AuthenticateByName",
@@ -561,10 +584,18 @@ describe("redeemInvite", () => {
     ) => ReturnType<typeof connectFakeJellyfin>
   }>([
     {
-      failure: "the response to the Jellyfin account creation is lost",
+      failure:
+        "the response to the Jellyfin account creation is lost and Jellyfin stays unreachable",
       code: "JELLYFIN_ERROR",
-      arrange: (setup) =>
-        connectFakeJellyfin(setup, { lostResponses: ["/Users/New"] }),
+      arrange: (setup) => {
+        // The username check must still see Jellyfin; it only becomes
+        // unreachable once the account is committed.
+        const faults = {
+          lostResponses: ["/Users/New"],
+          onCreate: () => faults.lostResponses.push("/Users"),
+        }
+        return connectFakeJellyfin(setup, faults)
+      },
     },
     {
       failure: "recording the account fails and Jellyfin cleanup fails",
@@ -604,6 +635,55 @@ describe("redeemInvite", () => {
           setup.jellyfin.authenticateUser("test-user", password),
         ).rejects.toMatchObject({ statusCode: 401 })
       }
+    },
+  )
+
+  it.each([
+    { kind: "timed", accessDurationDays: 30 },
+    { kind: "non-expiring", accessDurationDays: null },
+  ])(
+    "adopts a $kind account whose creation response was lost and completes the redemption",
+    async ({ accessDurationDays }) => {
+      const setup = await loadInviteModules()
+      const profile = await seedProfile(setup.database, setup.schema)
+      const invite = await seedInvite(setup, {
+        code: "LIMIT123",
+        profileId: profile.id,
+        access_duration_days: accessDurationDays,
+      })
+      const jellyfin = await connectFakeJellyfin(setup, {
+        lostResponses: ["/Users/New"],
+      })
+
+      const result = await setup.inviteService.redeemInvite(redeemInput)
+      const localUser = await setup.database.db.query.users.findFirst({
+        where: eq(setup.schema.users.userId, "jellyfin-user-1"),
+      })
+      const usages = await setup.database.db
+        .select()
+        .from(setup.schema.inviteUsages)
+        .where(eq(setup.schema.inviteUsages.inviteId, invite.id))
+
+      expect(result).toMatchObject({
+        success: true,
+        data: { user: { userId: "jellyfin-user-1", name: "test-user" } },
+      })
+      expect([...jellyfin.accounts.keys()]).toEqual(["jellyfin-user-1"])
+      if (!localUser) {
+        throw new Error("Expected the recovered user to be recorded")
+      }
+      expect(localUser.inviteId).toBe(invite.id)
+      expect(localUser.expiresAt?.getTime() ?? null).toBe(
+        accessDurationDays === null
+          ? null
+          : localUser.createdAt.getTime() +
+              accessDurationDays * 24 * 60 * 60 * 1000,
+      )
+      expect(usages).toHaveLength(1)
+      expect(await getInviteUseCount(setup, invite.id)).toBe(1)
+      await expect(
+        setup.jellyfin.authenticateUser("test-user", redeemInput.password),
+      ).resolves.toMatchObject({ id: "jellyfin-user-1" })
     },
   )
 
