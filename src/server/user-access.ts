@@ -1,3 +1,5 @@
+import { SYSTEM_AUDIT_ACTOR } from "@/lib/audit"
+import { recordAuditEvent } from "@/server/audit"
 import { updateUserPolicy } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
 import { revokeAllUserSessions } from "@/server/session"
@@ -33,6 +35,13 @@ export async function enforceExpiredUserAccess(
         },
         "Disabled expired Jellyfin user",
       )
+      // Only the enabled -> disabled transition is recorded; repeated sweeps
+      // over an already disabled user do not add rows.
+      await recordAuditEvent(SYSTEM_AUDIT_ACTOR, {
+        action: "user.expired",
+        target: { id: input.userId, label: input.userName },
+        details: { expiresAt: input.expiresAt?.toISOString() ?? null },
+      })
     } catch (err) {
       disableError = err
       log.warn(

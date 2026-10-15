@@ -10,6 +10,7 @@ import {
 import { passwordSchema } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import { safeParse, stringSchema } from "@/lib/validation"
+import { recordAuditEvent } from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
 import { isEmailConfigured } from "@/server/email"
@@ -173,6 +174,13 @@ export async function resetPassword(
 
   const userApi = createApiWithToken(authResult.accessToken)
   await changePassword(userApi, authResult.id, pin, newPassword)
+  await recordAuditEvent(
+    { type: "user", id: authResult.id, name: pinInfo.userName },
+    {
+      action: "user.password_reset",
+      target: { id: authResult.id, label: pinInfo.userName },
+    },
+  )
 
   try {
     await revokeAllUserSessions(authResult.id)

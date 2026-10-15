@@ -3,6 +3,7 @@ export const DASHBOARD_TABS = [
   "profiles",
   "history",
   "users",
+  "audit",
   "settings",
 ] as const
 export const DASHBOARD_SETTINGS_TABS = [

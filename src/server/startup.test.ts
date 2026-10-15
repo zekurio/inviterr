@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
+  kickOffAuditPruning:
+    vi.fn<typeof import("@/server/audit").kickOffAuditPruning>(),
   startPasswordResetNotificationWatcher:
     vi.fn<
       typeof import("@/server/password-reset-notifications").startPasswordResetNotificationWatcher
@@ -23,6 +25,10 @@ vi.mock("@/lib/server/config.server", () => ({
     hasError: () => false,
     getError: () => null,
   },
+}))
+
+vi.mock("@/server/audit", () => ({
+  kickOffAuditPruning: mocks.kickOffAuditPruning,
 }))
 
 vi.mock("@/server/password-reset-notifications", () => ({
@@ -54,5 +60,6 @@ describe("startup tasks", () => {
     expect(mocks.startPasswordResetNotificationWatcher).toHaveBeenCalledOnce()
     expect(mocks.startUserExpiryMaintenanceScheduler).toHaveBeenCalledOnce()
     expect(mocks.pruneExpiredAccessRequests).toHaveBeenCalledOnce()
+    expect(mocks.kickOffAuditPruning).toHaveBeenCalledOnce()
   })
 })

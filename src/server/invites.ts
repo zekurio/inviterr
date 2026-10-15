@@ -21,6 +21,7 @@ import {
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
 import { safeParse } from "@/lib/validation"
+import { recordAuditEvent } from "@/server/audit"
 import { clearAuthCookies, establishAuthenticatedSession } from "@/server/auth"
 import { db, ensureMigrated, getUserByEmail } from "@/server/db"
 import {
@@ -927,6 +928,16 @@ export async function redeemInvite(
         "Failed to create a session for the new account",
       )
     }
+
+    // Recorded only once nothing can be compensated anymore.
+    await recordAuditEvent(
+      { type: "user", id: jellyfinUser.id, name: jellyfinUser.name },
+      {
+        action: "invite.redeemed",
+        target: { id: inviteId, label: code },
+        details: { email: normalizedEmail },
+      },
+    )
 
     try {
       if (!emailVerified && isEmailConfigured()) {

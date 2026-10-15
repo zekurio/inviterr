@@ -1,5 +1,6 @@
 import { configManager } from "@/lib/server/config.server"
 import { pruneExpiredAccessRequests } from "@/server/access-requests"
+import { kickOffAuditPruning } from "@/server/audit"
 import { createChildLogger } from "@/server/logger"
 import { startPasswordResetNotificationWatcher } from "@/server/password-reset-notifications"
 import {
@@ -33,6 +34,8 @@ export function runStartupTasks(): void {
     log.info("Running startup tasks")
     startPasswordResetNotificationWatcher()
     startUserExpiryMaintenanceScheduler()
+    // Independent of Jellyfin, so a failed user sync does not skip pruning.
+    kickOffAuditPruning()
     // Local-only cleanup runs first so a Jellyfin outage cannot keep expired
     // applicant data around.
     await pruneExpiredAccessRequests().catch((err: unknown) => {

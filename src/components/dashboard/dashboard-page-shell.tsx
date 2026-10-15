@@ -15,6 +15,7 @@ export function DashboardPageShell({
   usersData,
   accessRequestsData,
   historyData,
+  auditData,
 }: DashboardPageData) {
   return (
     <div className="flex min-h-screen flex-col">
@@ -39,6 +40,7 @@ export function DashboardPageShell({
             usersData={usersData}
             accessRequestsData={accessRequestsData}
             historyData={historyData}
+            auditData={auditData}
           />
         </div>
       </main>

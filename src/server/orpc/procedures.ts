@@ -32,6 +32,10 @@ import {
   updateAccessRequestsSettingsService,
 } from "@/server/admin/access-requests"
 import {
+  listAuditEventsPageService,
+  updateAuditRetentionService,
+} from "@/server/admin/audit"
+import {
   bulkManageInvitesService,
   createInviteService,
   deleteInviteService,
@@ -53,12 +57,14 @@ import {
   updateManagedUserService,
 } from "@/server/admin/users"
 import {
+  auditEventsPageInputSchema,
   bulkInvitesSchema,
   bulkManagedUsersSchema,
   bulkProfilesSchema,
   inviteHistoryPageInputSchema,
   invitesPageInputSchema,
   updateAccessRequestsSettingsBodySchema,
+  updateAuditRetentionSchema,
   usersPageInputSchema,
 } from "@/server/api/schemas/admin-schemas"
 import {
@@ -436,6 +442,20 @@ const adminProcedures = {
   overview: configuredAdminProcedure
     .input(standardSchema(noInputSchema))
     .handler(async () => unwrapActionResultOrThrow(await getOverviewService())),
+  audit: {
+    page: configuredAdminProcedure
+      .input(standardSchema(auditEventsPageInputSchema))
+      .handler(async ({ input }) =>
+        unwrapActionResultOrThrow(await listAuditEventsPageService(input)),
+      ),
+    updateRetention: configuredAdminProcedure
+      .input(standardSchema(updateAuditRetentionSchema))
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await updateAuditRetentionService(context.auditActor, input),
+        ),
+      ),
+  },
   invites: {
     page: configuredAdminProcedure
       .input(standardSchema(invitesPageInputSchema))
@@ -456,7 +476,7 @@ const adminProcedures = {
       .input(standardSchema(createInviteSchema))
       .handler(async ({ input, context }) =>
         unwrapActionResultOrThrow(
-          await createInviteService(context.session?.userId, input),
+          await createInviteService(context.auditActor, input),
         ),
       ),
     update: configuredAdminProcedure
@@ -468,9 +488,13 @@ const adminProcedures = {
           }),
         ),
       )
-      .handler(async ({ input }) =>
+      .handler(async ({ input, context }) =>
         unwrapActionResultOrThrow(
-          await updateInviteService(input.inviteId, input.updates),
+          await updateInviteService(
+            context.auditActor,
+            input.inviteId,
+            input.updates,
+          ),
         ),
       ),
     delete: configuredAdminProcedure
@@ -479,14 +503,18 @@ const adminProcedures = {
           Type.Object({ inviteId: Type.String({ format: "uuid" }) }),
         ),
       )
-      .handler(async ({ input }) => {
-        unwrapActionResultOrThrow(await deleteInviteService(input.inviteId))
+      .handler(async ({ input, context }) => {
+        unwrapActionResultOrThrow(
+          await deleteInviteService(context.auditActor, input.inviteId),
+        )
         return null
       }),
     bulk: configuredAdminProcedure
       .input(standardSchema(bulkInvitesSchema))
-      .handler(async ({ input }) =>
-        unwrapActionResultOrThrow(await bulkManageInvitesService(input)),
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await bulkManageInvitesService(context.auditActor, input),
+        ),
       ),
   },
   profiles: {
@@ -509,8 +537,10 @@ const adminProcedures = {
       }),
     create: configuredAdminProcedure
       .input(standardSchema(createProfileSchema))
-      .handler(async ({ input }) =>
-        unwrapActionResultOrThrow(await createProfileService(input)),
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await createProfileService(context.auditActor, input),
+        ),
       ),
     update: configuredAdminProcedure
       .input(
@@ -521,9 +551,13 @@ const adminProcedures = {
           }),
         ),
       )
-      .handler(async ({ input }) =>
+      .handler(async ({ input, context }) =>
         unwrapActionResultOrThrow(
-          await updateProfileService(input.profileId, input.updates),
+          await updateProfileService(
+            context.auditActor,
+            input.profileId,
+            input.updates,
+          ),
         ),
       ),
     delete: configuredAdminProcedure
@@ -532,14 +566,18 @@ const adminProcedures = {
           Type.Object({ profileId: Type.String({ format: "uuid" }) }),
         ),
       )
-      .handler(async ({ input }) => {
-        unwrapActionResultOrThrow(await deleteProfileService(input.profileId))
+      .handler(async ({ input, context }) => {
+        unwrapActionResultOrThrow(
+          await deleteProfileService(context.auditActor, input.profileId),
+        )
         return null
       }),
     bulk: configuredAdminProcedure
       .input(standardSchema(bulkProfilesSchema))
-      .handler(async ({ input }) =>
-        unwrapActionResultOrThrow(await bulkManageProfilesService(input)),
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await bulkManageProfilesService(context.auditActor, input),
+        ),
       ),
   },
   accessRequests: {
@@ -578,29 +616,39 @@ const adminProcedures = {
           }),
         ),
       )
-      .handler(async ({ input }) =>
+      .handler(async ({ input, context }) =>
         unwrapActionResultOrThrow(
-          await updateManagedUserService(input.userId, input.updates),
+          await updateManagedUserService(
+            context.auditActor,
+            input.userId,
+            input.updates,
+          ),
         ),
       ),
     bulk: configuredAdminProcedure
       .input(standardSchema(bulkManagedUsersSchema))
-      .handler(async ({ input }) =>
-        unwrapActionResultOrThrow(await bulkManageUsersService(input)),
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await bulkManageUsersService(context.auditActor, input),
+        ),
       ),
     delete: configuredAdminProcedure
       .input(
         standardSchema(Type.Object({ userId: stringSchema({ minLength: 1 }) })),
       )
-      .handler(async ({ input }) =>
-        unwrapActionResultOrThrow(await deleteManagedUserService(input.userId)),
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await deleteManagedUserService(context.auditActor, input.userId),
+        ),
       ),
     syncSeerr: configuredAdminProcedure
       .input(
         standardSchema(Type.Object({ userId: stringSchema({ minLength: 1 }) })),
       )
-      .handler(async ({ input }) =>
-        unwrapActionResultOrThrow(await syncUserToSeerrService(input.userId)),
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await syncUserToSeerrService(context.auditActor, input.userId),
+        ),
       ),
   },
   settings: {
@@ -617,19 +665,25 @@ const adminProcedures = {
       }),
     updateApp: configuredAdminProcedure
       .input(standardSchema(updateAppSettingsBodySchema))
-      .handler(async ({ input }) =>
-        unwrapActionResultOrThrow(await updateAppSettingsService(input)),
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await updateAppSettingsService(context.auditActor, input),
+        ),
       ),
     updateJellyfin: configuredAdminProcedure
       .input(standardSchema(updateJellyfinConfigBodySchema))
-      .handler(async ({ input }) => {
-        unwrapActionResultOrThrow(await updateJellyfinConfigService(input))
+      .handler(async ({ input, context }) => {
+        unwrapActionResultOrThrow(
+          await updateJellyfinConfigService(context.auditActor, input),
+        )
         return null
       }),
     updateSeerr: configuredAdminProcedure
       .input(standardSchema(updateSeerrConfigBodySchema))
-      .handler(async ({ input }) => {
-        unwrapActionResultOrThrow(await updateSeerrConfigService(input))
+      .handler(async ({ input, context }) => {
+        unwrapActionResultOrThrow(
+          await updateSeerrConfigService(context.auditActor, input),
+        )
         return null
       }),
     testSeerr: configuredAdminProcedure
@@ -639,8 +693,10 @@ const adminProcedures = {
       }),
     updateEmail: configuredAdminProcedure
       .input(standardSchema(updateEmailConfigBodySchema))
-      .handler(async ({ input }) =>
-        unwrapActionResultOrThrow(await updateEmailConfigService(input)),
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await updateEmailConfigService(context.auditActor, input),
+        ),
       ),
     previewEmail: configuredAdminProcedure
       .input(standardSchema(previewEmailBodySchema))
@@ -649,8 +705,10 @@ const adminProcedures = {
       ),
     sendTestEmail: configuredAdminProcedure
       .input(standardSchema(sendTestEmailBodySchema))
-      .handler(async ({ input }) => {
-        unwrapActionResultOrThrow(await sendTestEmailService(input))
+      .handler(async ({ input, context }) => {
+        unwrapActionResultOrThrow(
+          await sendTestEmailService(context.auditActor, input),
+        )
         return null
       }),
     updateAccessRequests: configuredAdminProcedure
@@ -662,9 +720,9 @@ const adminProcedures = {
       ),
     updateMemberOnboarding: configuredAdminProcedure
       .input(standardSchema(memberOnboardingConfigSchema))
-      .handler(async ({ input }) => {
+      .handler(async ({ input, context }) => {
         unwrapActionResultOrThrow(
-          await updateMemberOnboardingConfigService(input),
+          await updateMemberOnboardingConfigService(context.auditActor, input),
         )
         return null
       }),

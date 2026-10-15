@@ -12,6 +12,7 @@ import { getSession } from "@/lib/server/auth"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
 import { safeParse } from "@/lib/validation"
+import { recordAuditEvent } from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
 import { EmailApiError, isEmailConfigured } from "@/server/email"
@@ -59,6 +60,19 @@ export async function verifyEmail(
   }
 
   const verifiedEmail = verified.pendingEmail ?? verified.email
+  // The token holder acts for the account; the name is only known when the
+  // link is opened from that account's own session.
+  const verifierName =
+    sessionOverride?.userId === verified.userId ? sessionOverride.name : null
+  await recordAuditEvent(
+    { type: "user", id: verified.userId, name: verifierName },
+    {
+      action: "user.email_verified",
+      target: { id: verified.userId, label: verifierName },
+      details: { email: verifiedEmail },
+    },
+  )
+
   if (configManager.seerr && verifiedEmail) {
     try {
       const syncedSeerrUser = await resolveSeerrUser({

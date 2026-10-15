@@ -1,8 +1,9 @@
 import { ORPCError, os } from "@orpc/server"
 
 import { ErrorCode } from "@/lib/api/contracts/errors"
+import { auditActorFromSession } from "@/lib/audit"
 import { configManager } from "@/lib/server/config.server"
-import { canActAsAdmin } from "@/lib/session"
+import { canActAsAdmin, type SessionData } from "@/lib/session"
 import { createChildLogger } from "@/server/logger"
 import type { ORPCContext } from "@/server/orpc/context"
 import { throwAppError } from "@/server/orpc/errors"
@@ -40,10 +41,18 @@ const errorBoundaryMiddleware = orpc.middleware(async ({ next, path }) => {
 
 type SessionRequirement = "optional" | "required" | "admin"
 
+function enforceSessionRequirement(
+  context: ORPCContext,
+  requirement: "optional",
+): Promise<SessionData | null>
+function enforceSessionRequirement(
+  context: ORPCContext,
+  requirement: "required" | "admin",
+): Promise<SessionData>
 async function enforceSessionRequirement(
   context: ORPCContext,
   requirement: SessionRequirement,
-) {
+): Promise<SessionData | null> {
   const resolved = await context.resolveSession({
     validationMode: "if-stale",
     allowStaleOnJellyfinFailure: requirement === "optional",
@@ -97,11 +106,13 @@ const requireSessionMiddleware = orpc.middleware(async ({ context, next }) => {
   })
 })
 
+// Admin services record audit events on behalf of this actor.
 const requireAdminMiddleware = orpc.middleware(async ({ context, next }) => {
   const session = await enforceSessionRequirement(context, "admin")
   return next({
     context: {
       session,
+      auditActor: auditActorFromSession(session),
     },
   })
 })

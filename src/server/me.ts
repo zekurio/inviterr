@@ -7,6 +7,7 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import { auditActorFromSession } from "@/lib/audit"
 import { resolveLocale } from "@/lib/i18n"
 import type { MyExpiryInfo } from "@/lib/renewal-types"
 import {
@@ -21,6 +22,11 @@ import { getSession } from "@/lib/server/auth"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
 import { safeParse } from "@/lib/validation"
+import {
+  diffAuditFields,
+  recordAuditChange,
+  recordAuditEvent,
+} from "@/server/audit"
 import {
   clearAuthCookies,
   clearAuthenticatedSession,
@@ -189,6 +195,25 @@ export async function updateMyAccount(
     }
   }
 
+  const pendingEmail =
+    requestedEmail && requestedEmail !== session.email ? requestedEmail : null
+  await recordAuditChange(auditActorFromSession(session), {
+    action: "user.updated",
+    target: { id: session.userId, label: nextName },
+    details: {
+      ...diffAuditFields(
+        { name: session.name, locale: session.locale, email: session.email },
+        {
+          name: nextName,
+          locale: nextLocale,
+          email: requestedEmail === null ? null : session.email,
+        },
+      ),
+      // A new address only takes effect once verified (user.email_verified).
+      ...(pendingEmail ? { pendingEmail } : {}),
+    },
+  })
+
   return success(
     await getSessionDataForUser({
       userId: session.userId,
@@ -229,6 +254,10 @@ export async function changeMyPassword(
   }
 
   await adminResetUserPassword(session.userId, parsed.data.newPassword)
+  await recordAuditEvent(auditActorFromSession(session), {
+    action: "user.password_changed",
+    target: { id: session.userId, label: jellyfinUser.name },
+  })
 
   const jellyfinDeviceId = crypto.randomUUID()
   try {
@@ -458,6 +487,14 @@ export async function renewMyAccess(
     },
     "Member self-renewed account access",
   )
+  await recordAuditEvent(auditActorFromSession(session), {
+    action: "user.renewed",
+    target: { id: session.userId, label: session.name },
+    details: diffAuditFields(
+      { expiresAt: evaluation.expiresAt },
+      { expiresAt: evaluation.nextExpiresAt },
+    ),
+  })
 
   if (evaluation.nextExpiresAt) {
     await sendAccountRenewedNotification(
@@ -492,7 +529,7 @@ export async function deleteMyAccount(
 
   log.info({ userId: session.userId }, "User initiated account deletion")
 
-  await deleteLinkedSeerrUser(session.userId, {
+  const deletedFromSeerr = await deleteLinkedSeerrUser(session.userId, {
     userName: session.name,
     email: session.email,
   })
@@ -501,6 +538,15 @@ export async function deleteMyAccount(
   await deleteAppUserData(session.userId)
   await revokeAllUserSessions(session.userId)
   await clearAuthenticatedSession()
+  await recordAuditEvent(auditActorFromSession(session), {
+    action: "user.deleted",
+    target: { id: session.userId, label: session.name },
+    details: {
+      email: session.email,
+      deletedFromJellyfin: true,
+      deletedFromSeerr,
+    },
+  })
 
   await sendAccountDeletedNotification({
     userId: session.userId,

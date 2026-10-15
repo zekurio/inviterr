@@ -3,6 +3,7 @@
 import { useNavigate } from "@tanstack/react-router"
 import {
   Clock3,
+  ScrollText,
   Settings2,
   Ticket,
   Tv,
@@ -13,6 +14,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import { AccessRequestsCard } from "@/components/access-requests/access-requests-card"
+import { AuditLogTable } from "@/components/audit/audit-log-table"
 import { InviteHistoryTable } from "@/components/invites/invite-history-table"
 import { InvitesGrid } from "@/components/invites/invites-grid"
 import { ProfilesGrid } from "@/components/profiles/profiles-grid"
@@ -25,7 +27,9 @@ import {
   useDashboardSettingsActiveTabDirty,
 } from "@/hooks/use-dashboard-settings-dirty"
 import type {
+  AuditEventFiltersDto,
   MediaLibraryDto,
+  PagedAuditEventsDto,
   PagedInviteHistoryDto,
   PendingAccessRequestsDto,
   PagedInvitesDto,
@@ -51,6 +55,7 @@ const DASHBOARD_TAB_NAV_ITEMS: Array<{
     | "nav.profiles"
     | "nav.history"
     | "nav.users"
+    | "nav.audit"
     | "nav.settings"
   Icon: LucideIcon
 }> = [
@@ -58,6 +63,7 @@ const DASHBOARD_TAB_NAV_ITEMS: Array<{
   { value: "profiles", labelKey: "nav.profiles", Icon: Tv },
   { value: "history", labelKey: "nav.history", Icon: Clock3 },
   { value: "users", labelKey: "nav.users", Icon: User },
+  { value: "audit", labelKey: "nav.audit", Icon: ScrollText },
   { value: "settings", labelKey: "nav.settings", Icon: Settings2 },
 ]
 
@@ -100,6 +106,11 @@ interface DashboardTabsViewProps {
     query: string
     error: string | null
   }
+  auditData: {
+    page: PagedAuditEventsDto
+    filters: AuditEventFiltersDto
+    error: string | null
+  }
 }
 
 function DashboardTabsViewInner({
@@ -112,6 +123,7 @@ function DashboardTabsViewInner({
   usersData,
   accessRequestsData,
   historyData,
+  auditData,
 }: DashboardTabsViewProps) {
   const navigate = useNavigate()
   const t = useTranslations()
@@ -228,6 +240,19 @@ function DashboardTabsViewInner({
           initialPage={historyData.page}
           initialQuery={historyData.query}
           initialError={historyData.error}
+        />
+      </TabsContent>
+
+      <TabsContent
+        value="audit"
+        id={getTabContentId(DASHBOARD_TABS_BASE_ID, "audit")}
+        aria-labelledby={getTabTriggerId(DASHBOARD_TABS_BASE_ID, "audit")}
+        className="md:mt-4"
+      >
+        <AuditLogTable
+          initialPage={auditData.page}
+          initialFilters={auditData.filters}
+          initialError={auditData.error}
         />
       </TabsContent>
 

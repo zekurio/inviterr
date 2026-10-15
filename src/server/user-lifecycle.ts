@@ -1,8 +1,10 @@
 import { and, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm"
 
+import { SYSTEM_AUDIT_ACTOR } from "@/lib/audit"
 import { resolveLocale } from "@/lib/i18n"
 import { configManager } from "@/lib/server/config.server"
 import { pruneExpiredAccessRequests } from "@/server/access-requests"
+import { kickOffAuditPruning, recordAuditEvent } from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
 import {
   emailVerificationTokens,
@@ -117,6 +119,7 @@ export function reconcileInviteUseCounts(): Promise<void> {
     const inviteRows = await db
       .select({
         id: invites.id,
+        code: invites.code,
         useCount: invites.useCount,
         usageCount: count(inviteUsages.id),
       })
@@ -132,11 +135,20 @@ export function reconcileInviteUseCounts(): Promise<void> {
       return
     }
 
+    const batchId = crypto.randomUUID()
     for (const invite of staleInvites) {
       await db
         .update(invites)
         .set({ useCount: invite.usageCount })
         .where(eq(invites.id, invite.id))
+      await recordAuditEvent(SYSTEM_AUDIT_ACTOR, {
+        action: "invite.reconciled",
+        target: { id: invite.id, label: invite.code },
+        details: {
+          useCount: { from: invite.useCount, to: invite.usageCount },
+        },
+        batchId,
+      })
     }
 
     log.info(
@@ -238,8 +250,14 @@ export async function runUserStartupMaintenance(): Promise<void> {
         { count: unseededUsers.length },
         "Seeding DB records for unseen Jellyfin users",
       )
+      const batchId = crypto.randomUUID()
       for (const user of unseededUsers) {
         await ensureUserRecord(user.id)
+        await recordAuditEvent(SYSTEM_AUDIT_ACTOR, {
+          action: "user.imported",
+          target: { id: user.id, label: user.name },
+          batchId,
+        })
       }
     }
 
@@ -732,6 +750,7 @@ export function startUserExpiryMaintenanceScheduler(): void {
 
   userExpiryMaintenanceInterval = setInterval(() => {
     kickOffUserExpiryMaintenance()
+    kickOffAuditPruning()
   }, USER_EXPIRY_MAINTENANCE_INTERVAL_MS)
   userExpiryMaintenanceInterval.unref?.()
 }

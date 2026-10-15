@@ -22,6 +22,10 @@ import { Type, type StaticDecode } from "typebox"
 
 import { env } from "@/env"
 import {
+  AUDIT_RETENTION_DEFAULT_DAYS,
+  AUDIT_RETENTION_MAX_DAYS,
+} from "@/lib/audit"
+import {
   BRANDING_IMAGE_MAX_BASE64_LENGTH,
   BRANDING_IMAGE_MIME_TYPES,
   HEX_COLOR_PATTERN,
@@ -107,6 +111,10 @@ const DEFAULT_ACCESS_REQUESTS_CONFIG = {
   enabled: false,
 }
 
+const DEFAULT_AUDIT_CONFIG = {
+  retentionDays: AUDIT_RETENTION_DEFAULT_DAYS,
+}
+
 declare global {
   var __inviterrSetupKey: string | undefined
 }
@@ -156,6 +164,17 @@ const configSchema = Type.Object({
     }),
     DEFAULT_ACCESS_REQUESTS_CONFIG,
   ),
+  // Kept out of `app` because the app section is returned to anonymous
+  // visitors by the public bootstrap.
+  audit: defaulted(
+    Type.Object({
+      retentionDays: defaulted(
+        Type.Integer({ minimum: 0, maximum: AUDIT_RETENTION_MAX_DAYS }),
+        DEFAULT_AUDIT_CONFIG.retentionDays,
+      ),
+    }),
+    DEFAULT_AUDIT_CONFIG,
+  ),
   jellyfin: Type.Object({
     internalUrl: Type.String({ format: "uri" }),
     externalUrl: Type.Optional(Type.String({ format: "uri" })),
@@ -191,6 +210,7 @@ export type EmailBrandingConfig = NonNullable<EmailConfig["branding"]>
 export type BrandingImageConfig = StaticDecode<typeof brandingImageSchema>
 export type MemberOnboardingConfig = Config["memberOnboarding"]
 export type AccessRequestsConfig = Config["accessRequests"]
+export type AuditConfig = Config["audit"]
 const CONFIG_DIRECTORY_MODE = 0o700
 const CONFIG_FILE_MODE = 0o600
 
@@ -518,6 +538,10 @@ class ConfigManager {
     return this.get().accessRequests
   }
 
+  get audit(): AuditConfig {
+    return this.get().audit
+  }
+
   get email(): EmailConfig | undefined {
     return this.get().email
   }
@@ -572,6 +596,7 @@ class ConfigManager {
       auth: { ...DEFAULT_AUTH_CONFIG },
       memberOnboarding: DEFAULT_MEMBER_ONBOARDING_CONFIG,
       accessRequests: DEFAULT_ACCESS_REQUESTS_CONFIG,
+      audit: DEFAULT_AUDIT_CONFIG,
       jellyfin: jellyfinConfig,
     }
 
@@ -626,6 +651,16 @@ class ConfigManager {
     const updatedConfig = {
       ...current,
       accessRequests: values,
+    }
+    await this.save(updatedConfig)
+    this.config = updatedConfig
+  }
+
+  async setAudit(values: AuditConfig): Promise<void> {
+    const current = this.get()
+    const updatedConfig = {
+      ...current,
+      audit: values,
     }
     await this.save(updatedConfig)
     this.config = updatedConfig

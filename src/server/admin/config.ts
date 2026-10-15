@@ -4,6 +4,7 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import type { AuditActor } from "@/lib/audit"
 import {
   configManager,
   type JellyfinConfig,
@@ -15,6 +16,7 @@ import type {
   UpdateMemberOnboardingConfigInput,
   UpdateSeerrConfigInput,
 } from "@/server/api/schemas/common-schemas"
+import { diffAuditFields, recordAuditChange } from "@/server/audit"
 import {
   assertJellyfinConnection,
   assertSeerrConnection,
@@ -28,6 +30,7 @@ const log = createChildLogger({ module: "admin-config" })
 const CONNECTION_TEST_TIMEOUT_MS = 8000
 
 export async function updateJellyfinConfigService(
+  actor: AuditActor,
   data: UpdateJellyfinConfigInput,
 ): Promise<ActionResult<void>> {
   try {
@@ -62,7 +65,15 @@ export async function updateJellyfinConfigService(
       await assertJellyfinConnection(nextInternalUrl, nextApiKey)
     }
 
+    const previous = configManager.jellyfin
     await configManager.setJellyfin(updates)
+
+    await recordAuditChange(actor, {
+      action: "settings.updated",
+      target: { id: "jellyfin" },
+      details: diffAuditFields(previous, configManager.jellyfin, ["apiKey"]),
+    })
+
     return success(undefined)
   } catch (e) {
     if (e instanceof JellyfinConnectionValidationError) {
@@ -95,6 +106,7 @@ export async function getSeerrConfigService(): Promise<
 }
 
 export async function updateSeerrConfigService(
+  actor: AuditActor,
   data: UpdateSeerrConfigInput,
 ): Promise<ActionResult<void>> {
   try {
@@ -102,12 +114,13 @@ export async function updateSeerrConfigService(
       return error(ErrorCode.CONFIG_NOT_INITIALIZED)
     }
 
+    const existing = configManager.seerr
     if (!data) {
       await configManager.setSeerr(undefined)
+      await recordSeerrConfigChange(actor, existing, undefined)
       return success(undefined)
     }
 
-    const existing = configManager.seerr
     const internalUrl = data.internalUrl ?? existing?.internalUrl
     const apiKey = data.apiKey ?? existing?.apiKey
 
@@ -128,6 +141,7 @@ export async function updateSeerrConfigService(
 
     await assertSeerrConnection(nextConfig)
     await configManager.setSeerr(nextConfig)
+    await recordSeerrConfigChange(actor, existing, nextConfig)
     return success(undefined)
   } catch (e) {
     if (e instanceof SeerrConnectionValidationError) {
@@ -139,6 +153,22 @@ export async function updateSeerrConfigService(
     log.error({ err: e }, "Failed to update Seerr config")
     return error(ErrorCode.OPERATION_FAILED, "Failed to update Seerr config")
   }
+}
+
+async function recordSeerrConfigChange(
+  actor: AuditActor,
+  previous: SeerrConfig | undefined,
+  next: SeerrConfig | undefined,
+): Promise<void> {
+  await recordAuditChange(actor, {
+    action: "settings.updated",
+    target: { id: "seerr" },
+    details: diffAuditFields(
+      { configured: previous !== undefined, ...previous },
+      { configured: next !== undefined, ...next },
+      ["apiKey"],
+    ),
+  })
 }
 
 export async function testSeerrConnectionService(): Promise<
@@ -160,13 +190,23 @@ export async function testSeerrConnectionService(): Promise<
 }
 
 export async function updateMemberOnboardingConfigService(
+  actor: AuditActor,
   data: UpdateMemberOnboardingConfigInput,
 ): Promise<ActionResult<void>> {
   if (!configManager.isConfigured()) {
     return error(ErrorCode.CONFIG_NOT_INITIALIZED)
   }
 
+  const previous = configManager.memberOnboarding
   const nextConfig: MemberOnboardingConfig = data
   await configManager.setMemberOnboarding(nextConfig)
+
+  // Page markdown can be large, so pages are recorded as changed only.
+  await recordAuditChange(actor, {
+    action: "settings.updated",
+    target: { id: "memberOnboarding" },
+    details: diffAuditFields(previous, nextConfig),
+  })
+
   return success(undefined)
 }

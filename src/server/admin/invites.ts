@@ -7,6 +7,7 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import type { AuditActor } from "@/lib/audit"
 import { normalizeInviteCode } from "@/lib/invite-codes"
 import { deriveInviteStatus, type InviteStatus } from "@/lib/invite-status"
 import { createInviteSchema, updateInviteSchema } from "@/lib/schemas"
@@ -18,6 +19,12 @@ import {
   type BulkInviteResultDto,
   type BulkInvitesDto,
 } from "@/server/api/schemas/admin-schemas"
+import {
+  diffAuditFields,
+  recordAuditChange,
+  recordAuditEvent,
+  type AuditScope,
+} from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
 import { inviteUsages, invites, profiles, users } from "@/server/db/schema"
 import { generateInviteCode } from "@/server/invites"
@@ -201,7 +208,7 @@ function getInvitesOrderBy(
 }
 
 export async function createInviteService(
-  createdById: string | undefined,
+  actor: AuditActor,
   input: StaticDecode<typeof createInviteSchema>,
 ): Promise<ActionResult<InviteListItem>> {
   await ensureMigrated()
@@ -236,7 +243,7 @@ export async function createInviteService(
     useCount: 0,
     expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
     access_duration_days: parsed.data.accessDurationDays ?? null,
-    createdById: createdById ?? null,
+    createdById: actor.type === "system" ? null : actor.id,
     createdAt: new Date(),
   }
   const invite = code
@@ -253,6 +260,16 @@ export async function createInviteService(
       "Failed to generate unique invite code. Please try again.",
     )
   }
+
+  await recordAuditEvent(actor, {
+    action: "invite.created",
+    target: { id: invite.id, label: invite.code },
+    details: {
+      profile: profile.name,
+      useLimit: invite.useLimit,
+      expiresAt: invite.expiresAt?.toISOString() ?? null,
+    },
+  })
 
   return success(toInviteListItem(invite, profile.name))
 }
@@ -282,6 +299,7 @@ export async function insertInviteWithGeneratedCode(
 }
 
 export async function updateInviteService(
+  actor: AuditActor,
   inviteId: string,
   input: StaticDecode<typeof updateInviteSchema>,
 ): Promise<ActionResult<InviteListItem>> {
@@ -291,10 +309,10 @@ export async function updateInviteService(
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
 
-  const [existing] = await db
-    .select()
-    .from(invites)
-    .where(eq(invites.id, inviteId))
+  const existing = await db.query.invites.findFirst({
+    where: eq(invites.id, inviteId),
+    with: { profile: { columns: { name: true } } },
+  })
   if (!existing) {
     return error(ErrorCode.NOT_FOUND, "Invite not found")
   }
@@ -353,28 +371,70 @@ export async function updateInviteService(
     .from(profiles)
     .where(eq(profiles.id, updated.profileId))
 
+  await recordAuditChange(actor, {
+    action: "invite.updated",
+    target: { id: updated.id, label: updated.code },
+    details: diffAuditFields(
+      toInviteAuditFields(existing, existing.profile?.name),
+      toInviteAuditFields(updated, profile?.name),
+    ),
+  })
+
   return success(toInviteListItem(updated, profile?.name))
 }
 
+function toInviteAuditFields(
+  invite: Pick<InviteRecord, "code" | "isDisabled" | "useLimit" | "expiresAt">,
+  profileName: string | null | undefined,
+) {
+  return {
+    code: invite.code,
+    profile: profileName,
+    isDisabled: invite.isDisabled,
+    useLimit: invite.useLimit,
+    expiresAt: invite.expiresAt,
+  }
+}
+
 export async function deleteInviteService(
+  actor: AuditActor,
   inviteId: string,
 ): Promise<ActionResult<null>> {
   await ensureMigrated()
 
-  const [existing] = await db
-    .select()
-    .from(invites)
-    .where(eq(invites.id, inviteId))
+  const existing = await db.query.invites.findFirst({
+    where: eq(invites.id, inviteId),
+    with: { profile: { columns: { name: true } } },
+  })
   if (!existing) {
     return error(ErrorCode.NOT_FOUND, "Invite not found")
   }
 
-  await db.transaction(async (tx) => {
-    await tx.delete(inviteUsages).where(eq(inviteUsages.inviteId, inviteId))
-    await tx.delete(invites).where(eq(invites.id, inviteId))
-  })
+  await deleteInviteWithUsages(
+    { actor },
+    { ...existing, profileName: existing.profile?.name ?? null },
+  )
 
   return success(null)
+}
+
+async function deleteInviteWithUsages(
+  audit: AuditScope,
+  invite: Pick<InviteRecord, "id" | "code" | "useCount"> & {
+    profileName: string | null
+  },
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(inviteUsages).where(eq(inviteUsages.inviteId, invite.id))
+    await tx.delete(invites).where(eq(invites.id, invite.id))
+  })
+
+  await recordAuditEvent(audit.actor, {
+    action: "invite.deleted",
+    target: { id: invite.id, label: invite.code },
+    details: { profile: invite.profileName, useCount: invite.useCount },
+    batchId: audit.batchId,
+  })
 }
 
 type BulkInviteOperation = StaticDecode<typeof bulkInvitesSchema>["operation"]
@@ -382,6 +442,7 @@ type BulkInviteOperation = StaticDecode<typeof bulkInvitesSchema>["operation"]
 type BulkInviteRow = InviteRecord & { profileName: string | null }
 
 export async function bulkManageInvitesService(
+  actor: AuditActor,
   input: StaticEncode<typeof bulkInvitesSchema>,
 ): Promise<ActionResult<BulkInvitesDto>> {
   const parsed = safeParse(bulkInvitesSchema, input)
@@ -397,6 +458,7 @@ export async function bulkManageInvitesService(
     .leftJoin(profiles, eq(invites.profileId, profiles.id))
     .where(inArray(invites.id, parsed.data.inviteIds))
   const invitesById = new Map(rows.map((row) => [row.id, row]))
+  const batch = { actor, batchId: crypto.randomUUID() }
 
   const results: BulkInviteResultDto[] = []
   for (const inviteId of parsed.data.inviteIds) {
@@ -405,6 +467,7 @@ export async function bulkManageInvitesService(
         inviteId,
         parsed.data.operation,
         invitesById.get(inviteId),
+        batch,
       ),
     )
   }
@@ -416,6 +479,7 @@ async function applyBulkInviteOperation(
   inviteId: string,
   operation: BulkInviteOperation,
   existing: BulkInviteRow | undefined,
+  batch: AuditScope,
 ): Promise<BulkInviteResultDto> {
   if (!existing) {
     return {
@@ -429,10 +493,7 @@ async function applyBulkInviteOperation(
 
   try {
     if (operation === "delete") {
-      await db.transaction(async (tx) => {
-        await tx.delete(inviteUsages).where(eq(inviteUsages.inviteId, inviteId))
-        await tx.delete(invites).where(eq(invites.id, inviteId))
-      })
+      await deleteInviteWithUsages(batch, existing)
       return { inviteId, ok: true, operation }
     }
 
@@ -452,6 +513,15 @@ async function applyBulkInviteOperation(
       .set({ isDisabled: nextIsDisabled })
       .where(eq(invites.id, inviteId))
       .returning()
+
+    await recordAuditEvent(batch.actor, {
+      action: "invite.updated",
+      target: { id: inviteId, label: existing.code },
+      details: {
+        isDisabled: { from: existing.isDisabled, to: nextIsDisabled },
+      },
+      batchId: batch.batchId,
+    })
 
     return {
       inviteId,
