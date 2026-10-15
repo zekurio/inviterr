@@ -177,6 +177,24 @@ export const inviteUsages = sqliteTable("invite_usages", {
     .default(DEFAULT_TIMESTAMP_MS),
 })
 
+// Written before an invite redemption creates its Jellyfin account and removed
+// once the account's local record exists. A row that outlives its redemption
+// marks an account whose outcome was never recorded (lost response, crash,
+// Jellyfin unreachable), so maintenance can remove the account instead of
+// seeding it as a non-expiring user. user_id is filled in once Jellyfin
+// returned it; until then the username is the only handle.
+export const pending_redemptions = sqliteTable("pending_redemptions", {
+  id: text().primaryKey().$defaultFn(createId),
+  invite_id: text()
+    .notNull()
+    .references(() => invites.id, { onDelete: "cascade" }),
+  username: text().notNull(),
+  user_id: text(),
+  started_at: integer({ mode: "timestamp_ms" })
+    .notNull()
+    .default(DEFAULT_TIMESTAMP_MS),
+})
+
 export const emailVerificationTokens = sqliteTable(
   "email_verification_tokens",
   {
@@ -260,6 +278,7 @@ export const schema = {
   inviteUsages,
   emailVerificationTokens,
   password_reset_notifications,
+  pending_redemptions,
   profilesRelations,
   usersRelations,
   sessionsRelations,
@@ -281,5 +300,6 @@ export type NewSession = typeof sessions.$inferInsert
 export type EmailVerificationToken = typeof emailVerificationTokens.$inferSelect
 export type NewEmailVerificationToken =
   typeof emailVerificationTokens.$inferInsert
+export type PendingRedemption = typeof pending_redemptions.$inferSelect
 export type PasswordResetNotification =
   typeof password_reset_notifications.$inferSelect

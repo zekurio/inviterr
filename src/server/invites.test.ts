@@ -627,6 +627,12 @@ describe("redeemInvite", () => {
 
       expect(result).toMatchObject({ success: false, code })
       expect([...jellyfin.accounts.keys()]).toEqual(["jellyfin-user-1"])
+      // The surviving account stays findable for maintenance.
+      expect(
+        await setup.database.db
+          .select({ username: setup.schema.pending_redemptions.username })
+          .from(setup.schema.pending_redemptions),
+      ).toEqual([{ username: redeemInput.username }])
       expect(
         jellyfin.requests.some((request) => request.path === "/Users/Password"),
       ).toBe(false)
@@ -672,6 +678,9 @@ describe("redeemInvite", () => {
       if (!localUser) {
         throw new Error("Expected the recovered user to be recorded")
       }
+      expect(
+        await setup.database.db.select().from(setup.schema.pending_redemptions),
+      ).toEqual([])
       expect(localUser.inviteId).toBe(invite.id)
       expect(localUser.expiresAt?.getTime() ?? null).toBe(
         accessDurationDays === null
