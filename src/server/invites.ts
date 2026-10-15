@@ -33,6 +33,11 @@ import {
 import { isEmailConfigured } from "@/server/email"
 import { sendConfiguredEmail } from "@/server/email/messages"
 import {
+  attachPendingRedemptionUser,
+  beginPendingRedemption,
+  finishPendingRedemption,
+} from "@/server/invite-redemptions"
+import {
   authenticateUser,
   changePassword,
   createAdminApi,
@@ -515,6 +520,29 @@ export async function redeemInvite(
       return error(ErrorCode.USERNAME_TAKEN)
     }
 
+    // Written before the create so an account whose outcome never reaches
+    // us (lost response, crash, Jellyfin unreachable) can be found and
+    // removed by maintenance instead of being seeded as a permanent user.
+    // The row is kept on every failure path and only removed once the
+    // local record exists; the sweep decides what a leftover row means.
+    let pendingRedemptionId: string
+    try {
+      pendingRedemptionId = await beginPendingRedemption({
+        inviteId,
+        username: parsed.data.username,
+      })
+    } catch (err) {
+      logger.error(
+        { err, inviteId, username: parsed.data.username },
+        "Failed to record the pending invite redemption",
+      )
+      await releaseInviteReservation(inviteId)
+      return error(
+        ErrorCode.INTERNAL_ERROR,
+        "Failed to complete registration. Please try again.",
+      )
+    }
+
     let jellyfinUser: { id: string; name: string; isAdmin: boolean }
     try {
       jellyfinUser = await createUser(
@@ -537,6 +565,7 @@ export async function redeemInvite(
       }
       jellyfinUser = recoveredUser
     }
+    await attachPendingRedemptionUser(pendingRedemptionId, jellyfinUser.id)
 
     // Record the account with its access expiry before the applicant's
     // password can work. If redemption then fails and the account survives
@@ -593,6 +622,9 @@ export async function redeemInvite(
         "Failed to complete registration. Please try again.",
       )
     }
+    // From here the local record carries the account's outcome, and the
+    // existing compensation paths own both the account and the record.
+    await finishPendingRedemption(pendingRedemptionId)
 
     if (stagingPassword !== null) {
       try {

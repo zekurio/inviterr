@@ -16,6 +16,10 @@ import {
   formatExpiryEmailDate,
   sendAccountDisabledNotification,
 } from "@/server/email/notifications"
+import {
+  ABANDONED_REDEMPTION_GRACE_MS,
+  cleanupAbandonedRedemptions,
+} from "@/server/invite-redemptions"
 import { getAllUsers, type JellyfinUserListItem } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
 import {
@@ -216,6 +220,11 @@ function startExpiredUserSweep(task: () => Promise<void>): Promise<void> {
 
 export async function runUserStartupMaintenance(): Promise<void> {
   await startExpiredUserSweep(async () => {
+    // Nothing is in flight right after boot, so every leftover redemption
+    // is abandoned. This must run before unseen accounts are seeded below,
+    // or a limbo account would become a permanent user.
+    await cleanupAbandonedRedemptions({ olderThanMs: 0 })
+
     const { jellyfinUsers, matchedUsers } = await syncUsersWithJellyfin()
 
     const matchedIds = new Set(matchedUsers.map((user) => user.userId))
@@ -682,6 +691,9 @@ async function loadMatchedUsersForExpiryMaintenance(): Promise<
 
 export function sweepExpiredUsers(): Promise<void> {
   return startExpiredUserSweep(async () => {
+    await cleanupAbandonedRedemptions({
+      olderThanMs: ABANDONED_REDEMPTION_GRACE_MS,
+    })
     const matchedUsers = await loadMatchedUsersForExpiryMaintenance()
 
     await enforceExpiredMatchedUsers(matchedUsers)
