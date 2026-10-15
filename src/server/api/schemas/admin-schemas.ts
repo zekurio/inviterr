@@ -211,10 +211,28 @@ export const inviteSchema = Type.Object({
   isDisabled: BooleanSchema,
   useLimit: nullable(Type.Number()),
   useCount: Type.Number(),
+  email: NullableStringSchema,
   expiresAt: nullable(DateTimeStringSchema),
   accessDurationDays: nullable(Type.Integer()),
   createdAt: DateTimeStringSchema,
   status: enumValues(inviteStatusValues),
+})
+
+export const accessRequestSchema = Type.Object({
+  id: AnyStringSchema,
+  email: AnyStringSchema,
+  message: NullableStringSchema,
+  createdAt: DateTimeStringSchema,
+  expiresAt: DateTimeStringSchema,
+})
+
+export const pendingAccessRequestsSchema = Type.Object({
+  requests: Type.Array(accessRequestSchema),
+  profileName: NullableStringSchema,
+})
+
+export const accessRequestDecisionResponseSchema = Type.Object({
+  requestId: AnyStringSchema,
 })
 
 export const inviteHistoryItemSchema = Type.Object({
@@ -274,6 +292,20 @@ export const managedUserListItemSchema = Type.Object({
   effectiveProfileName: nullable(AnyStringSchema),
   seerrSyncedAt: nullable(DateTimeStringSchema),
   expiresAt: nullable(DateTimeStringSchema),
+})
+
+export const accessRequestsSettingsSchema = Type.Object({
+  enabled: BooleanSchema,
+  profileId: NullableStringSchema,
+  // Approved applicants get their invite link by email, so the feature needs
+  // SMTP and a public application URL.
+  deliveryReady: BooleanSchema,
+  profiles: Type.Array(userProfileOptionSchema),
+})
+
+export const updateAccessRequestsSettingsBodySchema = Type.Object({
+  enabled: BooleanSchema,
+  profileId: nullable(UuidStringSchema),
 })
 
 export const syncUserToSeerrResponseSchema = Type.Object({
@@ -565,6 +597,19 @@ export type EnsureDefaultProfileDto = StaticDecode<
   typeof ensureDefaultProfileResponseSchema
 >
 export type InviteDto = StaticDecode<typeof inviteSchema>
+export type AccessRequestDto = StaticDecode<typeof accessRequestSchema>
+export type PendingAccessRequestsDto = StaticDecode<
+  typeof pendingAccessRequestsSchema
+>
+export type AccessRequestDecisionDto = StaticDecode<
+  typeof accessRequestDecisionResponseSchema
+>
+export type AccessRequestsSettingsDto = StaticDecode<
+  typeof accessRequestsSettingsSchema
+>
+export type UpdateAccessRequestsSettingsInput = StaticDecode<
+  typeof updateAccessRequestsSettingsBodySchema
+>
 export type InviteHistoryItemDto = StaticDecode<typeof inviteHistoryItemSchema>
 export type InviteHistoryPageInputDto = StaticEncode<
   typeof inviteHistoryPageInputSchema

@@ -125,6 +125,19 @@ export const de: Messages = {
     seerrTab: "Seerr",
     appTab: "App",
     emailTab: "E-Mail",
+    accessRequestsTab: "Zugangsanfragen",
+    accessRequestsTitle: "Zugangsanfragen",
+    accessRequestsDescription:
+      "Lass Personen über eine öffentliche Seite ein Konto anfragen. Admins prüfen jede Anfrage im Tab Benutzer.",
+    accessRequestsEnabled: "Zugangsanfragen erlauben",
+    accessRequestsEnabledDescription:
+      "Zeigt ein Anfrageformular unter /request-access und verlinkt es auf der Anmeldeseite.",
+    accessRequestsEmailRequired:
+      "Zugangsanfragen brauchen E-Mail-Versand und eine Anwendungs-URL, weil angenommene Personen ihren Einladungslink per E-Mail bekommen.",
+    accessRequestsProfile: "Profil für angenommene Anfragen",
+    accessRequestsProfileDescription:
+      "Beim Annehmen wird eine einmalige Einladung für dieses Profil erstellt.",
+    accessRequestsDefaultProfile: "Standardprofil",
     appSettings: "Anwendungseinstellungen",
     appSettingsDescription:
       "App-Name, Beschreibung und Standardsprache festlegen.",
@@ -235,6 +248,9 @@ export const de: Messages = {
       accountDisabled: "Konto deaktiviert",
       accountDeleted: "Konto gelöscht",
       accountRenewed: "Zugang verlängert",
+      accessRequestReceived: "Zugangsanfrage erhalten",
+      accessRequestApproved: "Zugangsanfrage angenommen",
+      accessRequestDenied: "Zugangsanfrage abgelehnt",
     },
     emailMessagePlaceholders: "Platzhalter",
     emailMessagePlaceholdersDescription:
@@ -337,6 +353,10 @@ export const de: Messages = {
   },
   invites: {
     title: "Einladungen",
+    lockedToEmail: "Für {email}",
+    emailLockedHint:
+      "Diese Einladung funktioniert nur mit dieser E-Mail-Adresse.",
+    accountCreated: "Konto erstellt",
     searchInvitesPlaceholder: "Einladungen suchen...",
     searchHistoryPlaceholder: "Historie durchsuchen...",
     sortCreated: "Erstellt",
@@ -743,6 +763,49 @@ export const de: Messages = {
       "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
     goToDashboard: "Zum Dashboard",
   },
+  accessRequests: {
+    pageTitle: "Zugang anfragen",
+    pageDescription:
+      "Bitte die Admins von {serverName} um ein Konto. Du bekommst eine E-Mail, sobald deine Anfrage geprüft wurde.",
+    emailLabel: "E-Mail",
+    emailPlaceholder: "du@beispiel.de",
+    messageLabel: "Nachricht (optional)",
+    messagePlaceholder: "Wer bist du, und woher kennst du die Admins?",
+    submit: "Anfrage senden",
+    submitting: "Wird gesendet...",
+    submittedTitle: "Anfrage gesendet",
+    submittedDescription:
+      "Wenn ein Admin deine Anfrage annimmt, bekommst du eine E-Mail mit einem Link, um dein Konto zu erstellen.",
+    unavailableTitle: "Keine Anfragen möglich",
+    unavailableDescription:
+      "Dieser Server nimmt gerade keine Zugangsanfragen an.",
+    loginPrompt: "Noch kein Konto?",
+    loginLink: "Zugang anfragen",
+    sectionTitle: "Offene Anfragen",
+    sectionDescription:
+      "Beim Annehmen bekommt die Person per E-Mail eine einmalige Einladung für das Profil {profile}.",
+    requested: "Angefragt",
+    noMessage: "Keine Nachricht",
+    approve: "Annehmen",
+    deny: "Ablehnen",
+    approveTitle: "Anfrage annehmen",
+    approveDescription:
+      "{email} bekommt eine einmalige Einladung für das Profil {profile}. Der Link läuft nach 7 Tagen ab.",
+    approving: "Wird angenommen...",
+    approved: "Einladung an {email} gesendet",
+    approveFailed: "Anfrage konnte nicht angenommen werden",
+    denyTitle: "Anfrage ablehnen",
+    denyDescription: "Die Anfrage von {email} wird entfernt.",
+    denyReasonLabel: "Grund (optional)",
+    denyReasonPlaceholder: "Steht in der E-Mail an die Person",
+    denyNotifyLabel: "Person per E-Mail benachrichtigen",
+    denyNotifyDescription: "Bei Spam ausschalten.",
+    denying: "Wird abgelehnt...",
+    denied: "Anfrage von {email} abgelehnt",
+    denyFailed: "Anfrage konnte nicht abgelehnt werden",
+    pendingCount: "{count} offene Zugangsanfragen",
+    loadFailed: "Zugangsanfragen konnten nicht geladen werden",
+  },
   emailTemplates: {
     layout: {
       footer: "Diese E-Mail wurde von {serverName} gesendet.",
@@ -811,6 +874,36 @@ export const de: Messages = {
       footer:
         "Du kannst dein Konto in deinem Profil verwalten und dort erneut verlängern.",
     },
+    accessRequestReceived: {
+      subject: "Neue Zugangsanfrage - {serverName}",
+      preview: "Jemand möchte {serverName} beitreten",
+      heading: "Neue Zugangsanfrage",
+      intro: "Jemand hat ein Konto auf {serverName} angefragt:",
+      action: "Anfrage prüfen",
+      footer:
+        "Du bekommst diese E-Mail, weil du Administrator mit bestätigter E-Mail-Adresse bist.",
+    },
+    accessRequestApproved: {
+      subject: "Deine Zugangsanfrage wurde angenommen - {serverName}",
+      preview: "Du kannst jetzt dein Konto auf {serverName} erstellen",
+      heading: "Deine Anfrage wurde angenommen",
+      intro:
+        "Ein Administrator hat deine Anfrage für {serverName} angenommen. Erstelle dein Konto über den Button unten.",
+      action: "Konto erstellen",
+      expiry: "Der Link funktioniert einmal und läuft am {expiryDate} ab.",
+      footer:
+        "Wenn du {serverName} nicht beitreten wolltest, kannst du diese E-Mail ignorieren.",
+    },
+    accessRequestDenied: {
+      subject: "Deine Zugangsanfrage - {serverName}",
+      preview: "Neuigkeiten zu deiner Anfrage für {serverName}",
+      heading: "Deine Anfrage wurde abgelehnt",
+      intro:
+        "Ein Administrator hat deine Anfrage für {serverName} geprüft und abgelehnt.",
+      reason: "Grund: {reason}",
+      footer:
+        "Wenn du nicht beitreten wolltest, kannst du diese E-Mail ignorieren.",
+    },
   },
   placeholders: {
     serverName: "Servername",
@@ -877,6 +970,9 @@ export const de: Messages = {
     passwordsDoNotMatch: "Passwörter stimmen nicht überein",
     pinRequired: "PIN ist erforderlich",
     seerrQuotaRange: "Anfragen und Tage müssen zwischen 1 und 100 liegen",
+    accessRequestMessageMaxLength:
+      "Die Nachricht darf höchstens 500 Zeichen lang sein",
+    denyReasonMaxLength: "Der Grund darf höchstens 500 Zeichen lang sein",
   },
   config: {
     errorTitle: "Konfigurationsfehler",
@@ -932,5 +1028,11 @@ export const de: Messages = {
     invalidVerificationToken:
       "Ungültiger oder abgelaufener Verifizierungs-Token.",
     noEmailOnFile: "Es ist keine E-Mail-Adresse hinterlegt.",
+    accessRequestsUnavailable:
+      "Dieser Server nimmt gerade keine Zugangsanfragen an.",
+    inviteEmailMismatch:
+      "Diese Einladung wurde für eine andere E-Mail-Adresse ausgestellt.",
+    noInviteProfile:
+      "Für neue Mitglieder ist kein Profil verfügbar. Lege zuerst eines an.",
   },
 }

@@ -13,6 +13,18 @@ import {
 import { DEFAULT_EMAIL_LOGO } from "@/server/email/default-logo"
 import { sendEmail, type SendEmailOptions } from "@/server/email/index"
 import {
+  AccessRequestApprovedEmailTemplate,
+  getAccessRequestApprovedEmailSubject,
+} from "@/server/email/templates/access-request-approved"
+import {
+  AccessRequestDeniedEmailTemplate,
+  getAccessRequestDeniedEmailSubject,
+} from "@/server/email/templates/access-request-denied"
+import {
+  AccessRequestReceivedEmailTemplate,
+  getAccessRequestReceivedEmailSubject,
+} from "@/server/email/templates/access-request-received"
+import {
   AccountDeletedEmailTemplate,
   getAccountDeletedEmailSubject,
 } from "@/server/email/templates/account-deleted"
@@ -95,6 +107,32 @@ interface AccountRenewedEmailMessage {
   }
 }
 
+interface AccessRequestReceivedEmailMessage {
+  type: "accessRequestReceived"
+  payload: {
+    applicantEmail: string
+    reviewUrl: string
+    locale: Locale
+  }
+}
+
+interface AccessRequestApprovedEmailMessage {
+  type: "accessRequestApproved"
+  payload: {
+    inviteUrl: string
+    expiryDate: string
+    locale: Locale
+  }
+}
+
+interface AccessRequestDeniedEmailMessage {
+  type: "accessRequestDenied"
+  payload: {
+    reason: string | null
+    locale: Locale
+  }
+}
+
 export type EmailMessageRequest =
   | VerifyEmailMessage
   | PasswordResetEmailMessage
@@ -102,6 +140,9 @@ export type EmailMessageRequest =
   | AccountDisabledEmailMessage
   | AccountDeletedEmailMessage
   | AccountRenewedEmailMessage
+  | AccessRequestReceivedEmailMessage
+  | AccessRequestApprovedEmailMessage
+  | AccessRequestDeniedEmailMessage
 
 interface BuildEmailMessageOptions {
   delivery: "preview" | "smtp"
@@ -217,6 +258,38 @@ export const emailMessageRegistry = {
       },
     }),
   },
+  accessRequestReceived: {
+    createSynthetic: ({ baseUrl, locale }) => ({
+      type: "accessRequestReceived",
+      payload: {
+        applicantEmail: "applicant@example.com",
+        reviewUrl: new URL("/dashboard/users", baseUrl).toString(),
+        locale,
+      },
+    }),
+  },
+  accessRequestApproved: {
+    createSynthetic: ({ baseUrl, locale, now }) => ({
+      type: "accessRequestApproved",
+      payload: {
+        inviteUrl: new URL("/invite/TESTCODE", baseUrl).toString(),
+        expiryDate: formatSyntheticExpiryDate(
+          locale,
+          new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+        ),
+        locale,
+      },
+    }),
+  },
+  accessRequestDenied: {
+    createSynthetic: ({ locale }) => ({
+      type: "accessRequestDenied",
+      payload: {
+        reason: "We are not accepting new members right now.",
+        locale,
+      },
+    }),
+  },
 } satisfies Record<EmailMessageType, EmailMessageDefinition>
 
 function getMessageElement(
@@ -282,6 +355,33 @@ function getMessageElement(
         subject: getAccountRenewedEmailSubject(subjectInput),
         element: (
           <AccountRenewedEmailTemplate {...shared} {...request.payload} />
+        ),
+      }
+    case "accessRequestReceived":
+      return {
+        subject: getAccessRequestReceivedEmailSubject(subjectInput),
+        element: (
+          <AccessRequestReceivedEmailTemplate
+            {...shared}
+            {...request.payload}
+          />
+        ),
+      }
+    case "accessRequestApproved":
+      return {
+        subject: getAccessRequestApprovedEmailSubject(subjectInput),
+        element: (
+          <AccessRequestApprovedEmailTemplate
+            {...shared}
+            {...request.payload}
+          />
+        ),
+      }
+    case "accessRequestDenied":
+      return {
+        subject: getAccessRequestDeniedEmailSubject(subjectInput),
+        element: (
+          <AccessRequestDeniedEmailTemplate {...shared} {...request.payload} />
         ),
       }
   }

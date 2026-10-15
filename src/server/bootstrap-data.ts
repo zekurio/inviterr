@@ -5,6 +5,8 @@ import type {
   DashboardSettingsBootstrap,
 } from "@/lib/bootstrap-data"
 import { configManager } from "@/lib/server/config.server"
+import { isAccessRequestsEnabled } from "@/server/access-requests"
+import { projectAccessRequestsSettingsDto } from "@/server/admin/access-requests"
 import { projectAppSettingsDto } from "@/server/admin/app"
 import { projectEmailConfigDto } from "@/server/admin/email"
 import { isEmailConfigured } from "@/server/email"
@@ -29,6 +31,7 @@ export const getAppBootstrap = cache(async (): Promise<AppBootstrapData> => {
     configError: session?.isAdmin ? configManager.getError() : null,
     app: configManager.isConfigured() ? projectAppSettingsDto() : null,
     emailConfigured: isEmailConfigured(),
+    accessRequestsEnabled: isAccessRequestsEnabled(),
     session,
     shouldClearAuthCookies: resolvedSession?.shouldClearCookie ?? false,
   }
@@ -56,6 +59,7 @@ export const getDashboardSettingsBootstrap = cache(
         apiKeySet: Boolean(configManager.seerr?.apiKey),
       },
       memberOnboarding: configManager.memberOnboarding,
+      accessRequests: await projectAccessRequestsSettingsDto(),
     }
   },
 )

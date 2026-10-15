@@ -39,6 +39,7 @@ export const Route = createFileRoute("/login")({
 })
 
 function LoginPage() {
+  const { bootstrap } = Route.useLoaderData()
   const t = useTranslations()
   const navigate = useNavigate()
   const router = useRouter()
@@ -121,6 +122,18 @@ function LoginPage() {
               >
                 {t("auth.forgotPassword")}
               </Link>
+
+              {bootstrap.accessRequestsEnabled && (
+                <p className="text-muted-foreground text-center text-sm">
+                  {t("accessRequests.loginPrompt")}{" "}
+                  <Link
+                    to="/request-access"
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    {t("accessRequests.loginLink")}
+                  </Link>
+                </p>
+              )}
             </FieldGroup>
           </form>
         </CardContent>

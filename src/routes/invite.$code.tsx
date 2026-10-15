@@ -89,6 +89,7 @@ interface InviteRedeemState {
   errorMessage: string
   isLoggedIn: boolean
   userEmail: string | null
+  lockedEmail: string | null
   avatarFile: AvatarFile | null
   currentStep: number
   registrationComplete: boolean
@@ -105,6 +106,7 @@ type InviteRedeemEvent =
   | { type: "setErrorMessage"; errorMessage: string }
   | { type: "setIsLoggedIn"; isLoggedIn: boolean }
   | { type: "setUserEmail"; userEmail: string | null }
+  | { type: "setLockedEmail"; lockedEmail: string | null }
   | { type: "setAvatarFile"; avatarFile: AvatarFile | null }
   | {
       type: "setCurrentStep"
@@ -125,6 +127,7 @@ const initialInviteRedeemState: InviteRedeemState = {
   errorMessage: "",
   isLoggedIn: false,
   userEmail: null,
+  lockedEmail: null,
   avatarFile: null,
   currentStep: 0,
   registrationComplete: false,
@@ -167,6 +170,10 @@ function inviteRedeemReducer(
       return state.userEmail === event.userEmail
         ? state
         : { ...state, userEmail: event.userEmail }
+    case "setLockedEmail":
+      return state.lockedEmail === event.lockedEmail
+        ? state
+        : { ...state, lockedEmail: event.lockedEmail }
     case "setAvatarFile":
       return state.avatarFile === event.avatarFile
         ? state
@@ -211,6 +218,7 @@ function InviteRedeemPage() {
       errorMessage,
       isLoggedIn,
       userEmail,
+      lockedEmail,
       avatarFile,
       currentStep,
       registrationComplete,
@@ -374,6 +382,12 @@ function InviteRedeemPage() {
           type: "setAccessDurationDays",
           accessDurationDays: data.accessDurationDays ?? null,
         })
+        // Invites from an approved access request only accept the approved
+        // address, so it is prefilled and read-only.
+        if (data.email) {
+          dispatch({ type: "setLockedEmail", lockedEmail: data.email })
+          setValue("email", data.email)
+        }
         if (data.onboardingSteps && data.onboardingSteps.length > 0) {
           dispatch({
             type: "setOnboardingStepTitles",
@@ -393,7 +407,7 @@ function InviteRedeemPage() {
       dispatch({ type: "setErrorMessage", errorMessage: t(errorKey) })
       dispatch({ type: "setValidating", validating: false })
     },
-    [code, setSession, t],
+    [code, setSession, setValue, t],
   )
 
   useEffect(() => {
@@ -471,7 +485,11 @@ function InviteRedeemPage() {
     if (!result.data.session) {
       await refresh()
     }
-    toast.success(t("invites.verificationSent"))
+    toast.success(
+      result.data.session?.emailVerified
+        ? t("invites.accountCreated")
+        : t("invites.verificationSent"),
+    )
     if (pages.length === 0) {
       await navigate({ to: "/" })
       return
@@ -816,10 +834,22 @@ function InviteRedeemPage() {
                       type="email"
                       placeholder={t("invites.emailPlaceholder")}
                       disabled={isSubmitting}
+                      readOnly={lockedEmail !== null}
                       autoComplete="email"
                       aria-invalid={emailShouldShowInvalidState}
+                      aria-describedby={
+                        lockedEmail !== null ? "email-locked-hint" : undefined
+                      }
                       {...register("email")}
                     />
+                    {lockedEmail !== null && (
+                      <p
+                        id="email-locked-hint"
+                        className="text-muted-foreground text-xs"
+                      >
+                        {t("invites.emailLockedHint")}
+                      </p>
+                    )}
                     {emailShouldShowInvalidState && (
                       <FieldError errors={[emailErrorMessage]} />
                     )}

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RequestAccessRouteImport } from './routes/request-access'
 import { Route as ReadyzRouteImport } from './routes/readyz'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -37,6 +38,11 @@ import { Route as DashboardSettingsSettingsTabRouteImport } from './routes/dashb
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestAccessRoute = RequestAccessRouteImport.update({
+  id: '/request-access',
+  path: '/request-access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReadyzRoute = ReadyzRouteImport.update({
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRouteWithChildren
   '/readyz': typeof ReadyzRoute
+  '/request-access': typeof RequestAccessRoute
   '/reset-password': typeof ResetPasswordRoute
   '/branding/$asset': typeof BrandingAssetRoute
   '/dashboard/history': typeof DashboardHistoryRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/readyz': typeof ReadyzRoute
+  '/request-access': typeof RequestAccessRoute
   '/reset-password': typeof ResetPasswordRoute
   '/branding/$asset': typeof BrandingAssetRoute
   '/dashboard/history': typeof DashboardHistoryRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRouteWithChildren
   '/readyz': typeof ReadyzRoute
+  '/request-access': typeof RequestAccessRoute
   '/reset-password': typeof ResetPasswordRoute
   '/branding/$asset': typeof BrandingAssetRoute
   '/dashboard/history': typeof DashboardHistoryRoute
@@ -244,6 +253,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/profile'
     | '/readyz'
+    | '/request-access'
     | '/reset-password'
     | '/branding/$asset'
     | '/dashboard/history'
@@ -268,6 +278,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/readyz'
+    | '/request-access'
     | '/reset-password'
     | '/branding/$asset'
     | '/dashboard/history'
@@ -293,6 +304,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/profile'
     | '/readyz'
+    | '/request-access'
     | '/reset-password'
     | '/branding/$asset'
     | '/dashboard/history'
@@ -320,6 +332,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ProfileRoute: typeof ProfileRouteWithChildren
   ReadyzRoute: typeof ReadyzRoute
+  RequestAccessRoute: typeof RequestAccessRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   BrandingAssetRoute: typeof BrandingAssetRoute
   InviteCodeRoute: typeof InviteCodeRoute
@@ -334,6 +347,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request-access': {
+      id: '/request-access'
+      path: '/request-access'
+      fullPath: '/request-access'
+      preLoaderRoute: typeof RequestAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/readyz': {
@@ -558,6 +578,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ProfileRoute: ProfileRouteWithChildren,
   ReadyzRoute: ReadyzRoute,
+  RequestAccessRoute: RequestAccessRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   BrandingAssetRoute: BrandingAssetRoute,
   InviteCodeRoute: InviteCodeRoute,

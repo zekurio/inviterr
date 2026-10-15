@@ -210,6 +210,7 @@ export const appBootstrapSchema = Type.Object({
   configError: nullable(AnyStringSchema),
   app: nullable(appSettingsSchema),
   emailConfigured: BooleanSchema,
+  accessRequestsEnabled: BooleanSchema,
   session: nullable(sessionSchema),
   locale: localeSchema,
 })

@@ -1,4 +1,5 @@
 import { configManager } from "@/lib/server/config.server"
+import { pruneExpiredAccessRequests } from "@/server/access-requests"
 import { createChildLogger } from "@/server/logger"
 import { startPasswordResetNotificationWatcher } from "@/server/password-reset-notifications"
 import {
@@ -32,6 +33,9 @@ export function runStartupTasks(): void {
     log.info("Running startup tasks")
     startPasswordResetNotificationWatcher()
     startUserExpiryMaintenanceScheduler()
+    // Local-only cleanup runs first so a Jellyfin outage cannot keep expired
+    // applicant data around.
+    await pruneExpiredAccessRequests()
     await runUserStartupMaintenance()
 
     log.info("Jellyfin user sync complete")

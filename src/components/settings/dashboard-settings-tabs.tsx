@@ -3,6 +3,7 @@
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { toast } from "sonner"
 
+import { AccessRequestsSettingsTab } from "@/components/settings/access-requests-settings-tab"
 import { AppSettingsTab } from "@/components/settings/app-settings-tab"
 import { EmailSettingsTab } from "@/components/settings/email-settings-tab"
 import { JellyfinSettingsTab } from "@/components/settings/jellyfin-settings-tab"
@@ -34,12 +35,14 @@ const DASHBOARD_SETTINGS_TABS: ReadonlyArray<{
     | "settings.memberOnboardingTab"
     | "settings.appTab"
     | "settings.emailTab"
+    | "settings.accessRequestsTab"
 }> = [
   { value: "jellyfin", labelKey: "settings.jellyfinTab" },
   { value: "seerr", labelKey: "settings.seerrTab" },
   { value: "memberOnboarding", labelKey: "settings.memberOnboardingTab" },
   { value: "app", labelKey: "settings.appTab" },
   { value: "email", labelKey: "settings.emailTab" },
+  { value: "accessRequests", labelKey: "settings.accessRequestsTab" },
 ]
 
 function getTabTriggerId(value: DashboardSettingsTab): string {
@@ -209,6 +212,14 @@ export function DashboardSettingsTabs({
         className="mt-4"
       >
         <EmailSettingsTab initialConfig={initialData.email} />
+      </TabsContent>
+      <TabsContent
+        value="accessRequests"
+        id={getTabContentId("accessRequests")}
+        aria-labelledby={getTabTriggerId("accessRequests")}
+        className="mt-4"
+      >
+        <AccessRequestsSettingsTab initialConfig={initialData.accessRequests} />
       </TabsContent>
     </Tabs>
   )

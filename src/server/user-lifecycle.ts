@@ -2,6 +2,7 @@ import { and, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm"
 
 import { resolveLocale } from "@/lib/i18n"
 import { configManager } from "@/lib/server/config.server"
+import { pruneExpiredAccessRequests } from "@/server/access-requests"
 import { db, ensureMigrated } from "@/server/db"
 import {
   emailVerificationTokens,
@@ -693,6 +694,9 @@ export function sweepExpiredUsers(): Promise<void> {
   return startExpiredUserSweep(async () => {
     await cleanupAbandonedRedemptions({
       olderThanMs: ABANDONED_REDEMPTION_GRACE_MS,
+    })
+    await pruneExpiredAccessRequests().catch((err: unknown) => {
+      log.warn({ err }, "Failed to prune expired access requests")
     })
     const matchedUsers = await loadMatchedUsersForExpiryMaintenance()
 

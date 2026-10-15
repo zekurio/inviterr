@@ -34,6 +34,7 @@ type InviteListItem = {
   isDisabled: boolean
   useLimit: number | null
   useCount: number
+  email: string | null
   expiresAt: string | null
   accessDurationDays: number | null
   createdAt: string
@@ -74,6 +75,7 @@ type InviteRecord = {
   isDisabled: boolean
   useLimit: number | null
   useCount: number
+  email: string | null
   expiresAt: Date | null
   access_duration_days: number | null
   createdAt: Date
@@ -87,6 +89,7 @@ const inviteListColumns = {
   isDisabled: invites.isDisabled,
   useLimit: invites.useLimit,
   useCount: invites.useCount,
+  email: invites.email,
   expiresAt: invites.expiresAt,
   access_duration_days: invites.access_duration_days,
   createdAt: invites.createdAt,
@@ -104,6 +107,7 @@ function toInviteListItem(
     isDisabled: invite.isDisabled,
     useLimit: invite.useLimit,
     useCount: invite.useCount,
+    email: invite.email,
     expiresAt: invite.expiresAt?.toISOString() ?? null,
     accessDurationDays: invite.access_duration_days,
     createdAt: invite.createdAt.toISOString(),
@@ -174,7 +178,11 @@ function getInvitesSearchFilter(query: string | undefined): SQL | undefined {
   }
 
   const pattern = `%${query}%`
-  return or(like(invites.code, pattern), like(profiles.name, pattern))
+  return or(
+    like(invites.code, pattern),
+    like(profiles.name, pattern),
+    like(invites.email, pattern),
+  )
 }
 
 function getInvitesOrderBy(
