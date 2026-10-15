@@ -11,6 +11,7 @@ export const DASHBOARD_SETTINGS_TABS = [
   "memberOnboarding",
   "app",
   "email",
+  "accessRequests",
 ] as const
 
 export type DashboardTab = (typeof DASHBOARD_TABS)[number]

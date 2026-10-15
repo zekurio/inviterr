@@ -64,6 +64,8 @@ const validation = {
   passwordsDoNotMatch: "validation.passwordsDoNotMatch",
   pinRequired: "validation.pinRequired",
   seerrQuotaRange: "validation.seerrQuotaRange",
+  accessRequestMessageMaxLength: "validation.accessRequestMessageMaxLength",
+  denyReasonMaxLength: "validation.denyReasonMaxLength",
 } as const
 
 const SEERR_QUOTA_DAYS_MAX = 100
@@ -1016,6 +1018,48 @@ export const forgotPasswordFormSchema = Type.Object({
 
 export type ForgotPasswordFormValues = StaticDecode<
   typeof forgotPasswordFormSchema
+>
+
+export const ACCESS_REQUEST_TEXT_MAX_LENGTH = 500
+
+/**
+ * Access request form schema - used by the public request-access page and its
+ * submit endpoint
+ */
+export const accessRequestFormSchema = Type.Object({
+  email: Type.String({
+    format: "email",
+    maxLength: 254,
+    errorMessage: { format: validation.invalidEmail },
+  }),
+  message: Type.Optional(
+    trimmedString({
+      maxLength: ACCESS_REQUEST_TEXT_MAX_LENGTH,
+      errorMessage: { maxLength: validation.accessRequestMessageMaxLength },
+    }),
+  ),
+})
+
+export type AccessRequestFormValues = StaticDecode<
+  typeof accessRequestFormSchema
+>
+
+/**
+ * Deny access request form schema - used by the admin deny dialog
+ */
+export const denyAccessRequestSchema = Type.Object({
+  requestId: Type.String({ format: "uuid" }),
+  reason: Type.Optional(
+    trimmedString({
+      maxLength: ACCESS_REQUEST_TEXT_MAX_LENGTH,
+      errorMessage: { maxLength: validation.denyReasonMaxLength },
+    }),
+  ),
+  notify: Type.Boolean(),
+})
+
+export type DenyAccessRequestInput = StaticDecode<
+  typeof denyAccessRequestSchema
 >
 
 /**

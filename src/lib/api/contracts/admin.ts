@@ -1,4 +1,7 @@
 export type {
+  AccessRequestDecisionDto,
+  AccessRequestDto,
+  AccessRequestsSettingsDto,
   AppSettingsDto,
   BulkInviteOperationDto,
   BulkInviteResultDto,
@@ -24,6 +27,7 @@ export type {
   PagedInviteHistoryDto,
   PagedInvitesDto,
   PagedUsersWithProfilesDto,
+  PendingAccessRequestsDto,
   ProfileDto,
   SeerrConfigDto,
   SyncUserToSeerrDto,

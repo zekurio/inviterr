@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm"
+import { and, eq, gt, sql } from "drizzle-orm"
 import type { StaticDecode } from "typebox"
 
 import {
@@ -36,6 +36,7 @@ import {
   attachPendingRedemptionUser,
   beginPendingRedemption,
   finishPendingRedemption,
+  redeemableInviteCondition,
 } from "@/server/invite-redemptions"
 import {
   authenticateUser,
@@ -105,6 +106,7 @@ export async function validateInvite(code: string): Promise<
     profileName: string
     error?: string
     accessDurationDays?: number | null
+    email?: string
     onboardingSteps?: Array<{ id: string; title: string }>
   }>
 > {
@@ -118,6 +120,7 @@ export async function validateInvite(code: string): Promise<
       isDisabled: invites.isDisabled,
       useLimit: invites.useLimit,
       useCount: invites.useCount,
+      email: invites.email,
       expiresAt: invites.expiresAt,
       access_duration_days: invites.access_duration_days,
     })
@@ -183,10 +186,13 @@ export async function validateInvite(code: string): Promise<
       }))
     : undefined
 
+  // Email-locked invites are only mailed to that address, so the code holder
+  // already knows it; prefilling avoids a confusing mismatch error.
   return success({
     valid: true,
     profileName: resolvedProfile.data.profileName,
     accessDurationDays: invite.access_duration_days,
+    email: invite.email ?? undefined,
     onboardingSteps,
   })
 }
@@ -389,6 +395,7 @@ export async function redeemInvite(
         isDisabled: invites.isDisabled,
         useLimit: invites.useLimit,
         useCount: invites.useCount,
+        email: invites.email,
         expiresAt: invites.expiresAt,
         access_duration_days: invites.access_duration_days,
       })
@@ -411,9 +418,21 @@ export async function redeemInvite(
       return error(ErrorCode.INVITE_EXHAUSTED)
     }
 
+    if (invite.email !== null && invite.email !== normalizedEmail) {
+      return error(
+        ErrorCode.VALIDATION_FAILED,
+        "This invite was issued for a different email address",
+        "errors.inviteEmailMismatch",
+      )
+    }
+
     if (await getUserByEmail(normalizedEmail)) {
       return error(ErrorCode.EMAIL_TAKEN)
     }
+
+    // The invite link was mailed to the locked address, so following it
+    // proves ownership the same way a verification link would.
+    const emailVerified = invite.email !== null
 
     const resolvedProfile = await resolveInviteProfile({
       profileId: invite.profileId,
@@ -428,14 +447,7 @@ export async function redeemInvite(
     const reserveResult = await db
       .update(invites)
       .set({ useCount: sql`${invites.useCount} + 1` })
-      .where(
-        and(
-          eq(invites.id, inviteId),
-          eq(invites.isDisabled, false),
-          or(isNull(invites.expiresAt), gt(invites.expiresAt, now)),
-          or(isNull(invites.useLimit), lt(invites.useCount, invite.useLimit!)),
-        ),
-      )
+      .where(and(eq(invites.id, inviteId), redeemableInviteCondition(now)))
       .returning({ id: invites.id })
 
     if (reserveResult.length === 0) {
@@ -801,6 +813,7 @@ export async function redeemInvite(
           .update(users)
           .set({
             email: normalizedEmail,
+            emailVerified,
             profileId: resolvedProfile.data.profileId,
             seerrSyncedAt: seerrConfigured ? new Date() : null,
           })
@@ -916,7 +929,7 @@ export async function redeemInvite(
     }
 
     try {
-      if (isEmailConfigured()) {
+      if (!emailVerified && isEmailConfigured()) {
         const token = await createEmailVerificationToken(jellyfinUser.id)
         const appUrl = configManager.appUrl
         if (!appUrl) {

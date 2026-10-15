@@ -2,6 +2,7 @@ import { and, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm"
 
 import { resolveLocale } from "@/lib/i18n"
 import { configManager } from "@/lib/server/config.server"
+import { pruneExpiredAccessRequests } from "@/server/access-requests"
 import { db, ensureMigrated } from "@/server/db"
 import {
   emailVerificationTokens,
@@ -691,6 +692,11 @@ async function loadMatchedUsersForExpiryMaintenance(): Promise<
 
 export function sweepExpiredUsers(): Promise<void> {
   return startExpiredUserSweep(async () => {
+    // Local-only, so it runs before the Jellyfin-dependent cleanup: an outage
+    // must not keep expired applicant data around.
+    await pruneExpiredAccessRequests().catch((err: unknown) => {
+      log.warn({ err }, "Failed to prune expired access requests")
+    })
     await cleanupAbandonedRedemptions({
       olderThanMs: ABANDONED_REDEMPTION_GRACE_MS,
     })

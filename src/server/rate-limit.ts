@@ -43,6 +43,22 @@ export const redeemInviteIdentifierLimiter = createLimiter({
   blockDuration: 30 * 60,
 })
 
+// Access requests are unauthenticated writes that also email admins, so they
+// get a tight IP budget plus a per-address limiter enforced in the handler.
+export const accessRequestLimiter = createLimiter({
+  keyPrefix: "access_request",
+  points: 3,
+  duration: 15 * 60,
+  blockDuration: 30 * 60,
+})
+
+export const accessRequestIdentifierLimiter = createLimiter({
+  keyPrefix: "access_request_identifier",
+  points: 3,
+  duration: 60 * 60,
+  blockDuration: 60 * 60,
+})
+
 export const validateInviteLimiter = createLimiter({
   keyPrefix: "validate_invite",
   points: 10,

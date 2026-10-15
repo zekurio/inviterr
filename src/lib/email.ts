@@ -7,6 +7,9 @@ export const EMAIL_MESSAGE_TYPES = [
   "accountDisabled",
   "accountDeleted",
   "accountRenewed",
+  "accessRequestReceived",
+  "accessRequestApproved",
+  "accessRequestDenied",
 ] as const
 
 export type EmailMessageType = (typeof EMAIL_MESSAGE_TYPES)[number]

@@ -111,6 +111,15 @@ export interface Messages {
     seerrTab: string
     appTab: string
     emailTab: string
+    accessRequestsTab: string
+    accessRequestsTitle: string
+    accessRequestsDescription: string
+    accessRequestsEnabled: string
+    accessRequestsEnabledDescription: string
+    accessRequestsEmailRequired: string
+    accessRequestsProfile: string
+    accessRequestsProfileDescription: string
+    accessRequestsDefaultProfile: string
     appSettings: string
     appSettingsDescription: string
     appTitle: string
@@ -203,6 +212,9 @@ export interface Messages {
       accountDisabled: string
       accountDeleted: string
       accountRenewed: string
+      accessRequestReceived: string
+      accessRequestApproved: string
+      accessRequestDenied: string
     }
     emailMessagePlaceholders: string
     emailMessagePlaceholdersDescription: string
@@ -293,6 +305,9 @@ export interface Messages {
   }
   invites: {
     title: string
+    lockedToEmail: string
+    emailLockedHint: string
+    accountCreated: string
     searchInvitesPlaceholder: string
     searchHistoryPlaceholder: string
     sortCreated: string
@@ -637,6 +652,44 @@ export interface Messages {
     verificationFailedGeneric: string
     goToDashboard: string
   }
+  accessRequests: {
+    pageTitle: string
+    pageDescription: string
+    emailLabel: string
+    emailPlaceholder: string
+    messageLabel: string
+    messagePlaceholder: string
+    submit: string
+    submitting: string
+    submittedTitle: string
+    submittedDescription: string
+    unavailableTitle: string
+    unavailableDescription: string
+    loginPrompt: string
+    loginLink: string
+    sectionTitle: string
+    sectionDescription: string
+    requested: string
+    noMessage: string
+    approve: string
+    deny: string
+    approveTitle: string
+    approveDescription: string
+    approving: string
+    approved: string
+    approveFailed: string
+    denyTitle: string
+    denyDescription: string
+    denyReasonLabel: string
+    denyReasonPlaceholder: string
+    denyNotifyLabel: string
+    denyNotifyDescription: string
+    denying: string
+    denied: string
+    denyFailed: string
+    pendingCount: string
+    loadFailed: string
+  }
   emailTemplates: {
     layout: {
       footer: string
@@ -691,6 +744,31 @@ export interface Messages {
       heading: string
       intro: string
       action: string
+      footer: string
+    }
+    accessRequestReceived: {
+      subject: string
+      preview: string
+      heading: string
+      intro: string
+      action: string
+      footer: string
+    }
+    accessRequestApproved: {
+      subject: string
+      preview: string
+      heading: string
+      intro: string
+      action: string
+      expiry: string
+      footer: string
+    }
+    accessRequestDenied: {
+      subject: string
+      preview: string
+      heading: string
+      intro: string
+      reason: string
       footer: string
     }
   }
@@ -749,6 +827,8 @@ export interface Messages {
     passwordsDoNotMatch: string
     pinRequired: string
     seerrQuotaRange: string
+    accessRequestMessageMaxLength: string
+    denyReasonMaxLength: string
   }
   config: {
     errorTitle: string
@@ -798,6 +878,9 @@ export interface Messages {
     applicationUrlNotConfigured: string
     invalidVerificationToken: string
     noEmailOnFile: string
+    accessRequestsUnavailable: string
+    inviteEmailMismatch: string
+    noInviteProfile: string
   }
 }
 

@@ -5,6 +5,10 @@ import {
   type DashboardTab,
 } from "@/lib/dashboard-tabs"
 import { createTranslator } from "@/lib/i18n"
+import {
+  countPendingAccessRequests,
+  listAccessRequestsService,
+} from "@/server/admin/access-requests"
 import { getSeerrConfigService } from "@/server/admin/config"
 import {
   getInviteHistoryPageService,
@@ -31,6 +35,7 @@ export interface DashboardPageData {
   activeTab: DashboardTab
   activeSettingsTab: DashboardSettingsTab
   appTitle: string
+  pendingAccessRequestCount: number
   session: {
     name: string
     avatarUrl: string
@@ -74,6 +79,14 @@ export interface DashboardPageData {
       ? T
       : never
     query: string
+    error: string | null
+  }
+  accessRequestsData: {
+    data: Awaited<
+      ReturnType<typeof listAccessRequestsService>
+    > extends ActionResult<infer T>
+      ? T
+      : never
     error: string | null
   }
   historyData: {
@@ -175,6 +188,8 @@ export async function loadDashboardPageData({
     activeTab === "history"
       ? getInviteHistoryPageService(history ?? {})
       : Promise.resolve(null)
+  const accessRequestsBootstrapPromise =
+    activeTab === "users" ? listAccessRequestsService() : Promise.resolve(null)
 
   const [
     settingsData,
@@ -182,12 +197,16 @@ export async function loadDashboardPageData({
     profilesBootstrap,
     usersBootstrap,
     historyBootstrap,
+    accessRequestsBootstrap,
+    pendingAccessRequestCount,
   ] = await Promise.all([
     settingsDataPromise,
     invitesBootstrapPromise,
     profilesBootstrapPromise,
     usersBootstrapPromise,
     historyBootstrapPromise,
+    accessRequestsBootstrapPromise,
+    countPendingAccessRequests(),
   ])
 
   if (!settingsData) {
@@ -247,6 +266,12 @@ export async function loadDashboardPageData({
         data: { items: [], page: 1, pageSize: 50, total: 0, pageCount: 0 },
         hasError: false,
       }
+  const initialAccessRequests = accessRequestsBootstrap
+    ? unwrapActionResult(accessRequestsBootstrap, {
+        requests: [],
+        profileName: null,
+      })
+    : { data: { requests: [], profileName: null }, hasError: false }
   const initialSeerrConfig = profilesBootstrap
     ? unwrapActionResult(profilesBootstrap.seerrConfig, {
         internalUrl: undefined,
@@ -266,6 +291,7 @@ export async function loadDashboardPageData({
     activeTab,
     activeSettingsTab,
     appTitle: bootstrap.app?.title ?? "Inviterr",
+    pendingAccessRequestCount,
     session: {
       name: session.name,
       avatarUrl: session.avatarUrl,
@@ -299,6 +325,12 @@ export async function loadDashboardPageData({
       data: initialUsers.data,
       query: users?.query ?? "",
       error: initialUsers.hasError ? t("users.usersLoadFailed") : null,
+    },
+    accessRequestsData: {
+      data: initialAccessRequests.data,
+      error: initialAccessRequests.hasError
+        ? t("accessRequests.loadFailed")
+        : null,
     },
     historyData: {
       page: initialHistory.data,

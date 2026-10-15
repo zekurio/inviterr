@@ -4,11 +4,14 @@ import { ErrorCode } from "@/lib/api/contracts/errors"
 import { DEFAULT_LOCALE, resolveLocale } from "@/lib/i18n"
 import { INVITE_CODE_MAX_LENGTH, INVITE_CODE_PATTERN } from "@/lib/invite-codes"
 import {
+  accessRequestFormSchema,
   changePasswordSchema,
   createInviteSchema,
   createProfileSchema,
+  denyAccessRequestSchema,
   loginSchema,
   MAX_AVATAR_DATA_URL_LENGTH,
+  normalizeEmail,
   removeAvatarSchema,
   setupKeyFormSchema,
   updateInviteSchema,
@@ -19,6 +22,15 @@ import {
 } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import { standardSchema, stringSchema, trimmedString } from "@/lib/validation"
+import {
+  isAccessRequestsEnabled,
+  submitAccessRequest,
+} from "@/server/access-requests"
+import {
+  approveAccessRequestService,
+  denyAccessRequestService,
+  updateAccessRequestsSettingsService,
+} from "@/server/admin/access-requests"
 import {
   bulkManageInvitesService,
   createInviteService,
@@ -46,6 +58,7 @@ import {
   bulkProfilesSchema,
   inviteHistoryPageInputSchema,
   invitesPageInputSchema,
+  updateAccessRequestsSettingsBodySchema,
   usersPageInputSchema,
 } from "@/server/api/schemas/admin-schemas"
 import {
@@ -104,6 +117,8 @@ import {
   resetPassword,
 } from "@/server/password-reset"
 import {
+  accessRequestIdentifierLimiter,
+  accessRequestLimiter,
   buildRateLimitKey,
   invalidInviteLookupLimiter,
   initializeConfigLimiter,
@@ -177,6 +192,7 @@ const appProcedures = {
         configError: session?.isAdmin ? configManager.getError() : null,
         app: configManager.isConfigured() ? configManager.app : null,
         emailConfigured: isEmailConfigured(),
+        accessRequestsEnabled: isAccessRequestsEnabled(),
         session,
         locale: resolveLocale(
           session?.locale ?? null,
@@ -281,6 +297,20 @@ const inviteProcedures = {
         getClientIpRateLimitKey(context, "invite_redeem", input.code),
       )
       return unwrapActionResultOrThrow(await redeemInvite(input))
+    }),
+}
+
+const accessRequestProcedures = {
+  submit: mutationProcedure
+    .use(rateLimitMiddleware(accessRequestLimiter))
+    .input(standardSchema(accessRequestFormSchema))
+    .handler(async ({ input }) => {
+      await enforceRateLimit(
+        accessRequestIdentifierLimiter,
+        buildRateLimitKey("access_request", normalizeEmail(input.email)),
+      )
+      unwrapActionResultOrThrow(await submitAccessRequest(input))
+      return null
     }),
 }
 
@@ -512,6 +542,27 @@ const adminProcedures = {
         unwrapActionResultOrThrow(await bulkManageProfilesService(input)),
       ),
   },
+  accessRequests: {
+    approve: configuredAdminProcedure
+      .input(
+        standardSchema(
+          Type.Object({ requestId: Type.String({ format: "uuid" }) }),
+        ),
+      )
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await approveAccessRequestService(
+            input.requestId,
+            context.session?.userId,
+          ),
+        ),
+      ),
+    deny: configuredAdminProcedure
+      .input(standardSchema(denyAccessRequestSchema))
+      .handler(async ({ input }) =>
+        unwrapActionResultOrThrow(await denyAccessRequestService(input)),
+      ),
+  },
   users: {
     page: configuredAdminProcedure
       .input(standardSchema(usersPageInputSchema))
@@ -602,6 +653,13 @@ const adminProcedures = {
         unwrapActionResultOrThrow(await sendTestEmailService(input))
         return null
       }),
+    updateAccessRequests: configuredAdminProcedure
+      .input(standardSchema(updateAccessRequestsSettingsBodySchema))
+      .handler(async ({ input }) =>
+        unwrapActionResultOrThrow(
+          await updateAccessRequestsSettingsService(input),
+        ),
+      ),
     updateMemberOnboarding: configuredAdminProcedure
       .input(standardSchema(memberOnboardingConfigSchema))
       .handler(async ({ input }) => {
@@ -618,6 +676,7 @@ export const procedures = {
   auth: authProcedures,
   onboarding: onboardingProcedures,
   invites: inviteProcedures,
+  accessRequests: accessRequestProcedures,
   email: emailProcedures,
   passwordReset: passwordResetProcedures,
   me: meProcedures,

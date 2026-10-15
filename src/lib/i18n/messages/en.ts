@@ -126,6 +126,19 @@ export const en: Messages = {
     seerrTab: "Seerr",
     appTab: "App",
     emailTab: "Email",
+    accessRequestsTab: "Access requests",
+    accessRequestsTitle: "Access requests",
+    accessRequestsDescription:
+      "Let people ask for an account from a public page. Admins review each request on the Users tab.",
+    accessRequestsEnabled: "Allow access requests",
+    accessRequestsEnabledDescription:
+      "Shows a request form at /request-access and links to it from the sign-in page.",
+    accessRequestsEmailRequired:
+      "Access requests need email delivery and an application URL, because approved applicants get their invite link by email.",
+    accessRequestsProfile: "Profile for approved requests",
+    accessRequestsProfileDescription:
+      "Approving a request creates a single-use invite for this profile.",
+    accessRequestsDefaultProfile: "Default profile",
     appSettings: "Application Settings",
     appSettingsDescription:
       "Set the app name, description, and default language.",
@@ -233,6 +246,9 @@ export const en: Messages = {
       accountDisabled: "Account disabled",
       accountDeleted: "Account deleted",
       accountRenewed: "Access renewed",
+      accessRequestReceived: "Access request received",
+      accessRequestApproved: "Access request approved",
+      accessRequestDenied: "Access request denied",
     },
     emailMessagePlaceholders: "Placeholders",
     emailMessagePlaceholdersDescription: "Click to insert at the cursor.",
@@ -329,6 +345,9 @@ export const en: Messages = {
   },
   invites: {
     title: "Invites",
+    lockedToEmail: "For {email}",
+    emailLockedHint: "This invite only works with this email address.",
+    accountCreated: "Account created",
     searchInvitesPlaceholder: "Search invites...",
     searchHistoryPlaceholder: "Search history...",
     sortCreated: "Created",
@@ -725,6 +744,49 @@ export const en: Messages = {
     verificationFailedGeneric: "Something went wrong. Please try again.",
     goToDashboard: "Go to dashboard",
   },
+  accessRequests: {
+    pageTitle: "Request access",
+    pageDescription:
+      "Ask the admins of {serverName} for an account. You'll get an email once they've reviewed your request.",
+    emailLabel: "Email",
+    emailPlaceholder: "you@example.com",
+    messageLabel: "Message (optional)",
+    messagePlaceholder: "Who are you, and how do you know the admins?",
+    submit: "Send request",
+    submitting: "Sending...",
+    submittedTitle: "Request sent",
+    submittedDescription:
+      "If an admin approves your request, you'll get an email with a link to create your account.",
+    unavailableTitle: "Requests are closed",
+    unavailableDescription:
+      "This server isn't accepting access requests right now.",
+    loginPrompt: "No account yet?",
+    loginLink: "Request access",
+    sectionTitle: "Pending requests",
+    sectionDescription:
+      "Approving emails the applicant a single-use invite for the {profile} profile.",
+    requested: "Requested",
+    noMessage: "No message",
+    approve: "Approve",
+    deny: "Deny",
+    approveTitle: "Approve request",
+    approveDescription:
+      "{email} will get a single-use invite for the {profile} profile. The link expires in 7 days.",
+    approving: "Approving...",
+    approved: "Invite sent to {email}",
+    approveFailed: "Failed to approve the request",
+    denyTitle: "Deny request",
+    denyDescription: "The request from {email} will be removed.",
+    denyReasonLabel: "Reason (optional)",
+    denyReasonPlaceholder: "Included in the email to the applicant",
+    denyNotifyLabel: "Email the applicant",
+    denyNotifyDescription: "Turn this off for spam.",
+    denying: "Denying...",
+    denied: "Request from {email} denied",
+    denyFailed: "Failed to deny the request",
+    pendingCount: "{count} pending access requests",
+    loadFailed: "Failed to load access requests",
+  },
   emailTemplates: {
     layout: {
       footer: "This email was sent by {serverName}.",
@@ -789,6 +851,35 @@ export const en: Messages = {
       action: "Open {serverName}",
       footer: "You can manage your account and renew again from your profile.",
     },
+    accessRequestReceived: {
+      subject: "New access request - {serverName}",
+      preview: "Someone asked to join {serverName}",
+      heading: "New access request",
+      intro: "Someone asked for an account on {serverName}:",
+      action: "Review request",
+      footer:
+        "You're getting this because you're an administrator with a verified email address.",
+    },
+    accessRequestApproved: {
+      subject: "Your access request was approved - {serverName}",
+      preview: "You can now create your account on {serverName}",
+      heading: "Your request was approved",
+      intro:
+        "An administrator approved your request to join {serverName}. Use the button below to create your account.",
+      action: "Create account",
+      expiry: "This link works once and expires on {expiryDate}.",
+      footer:
+        "If you didn't ask to join {serverName}, you can ignore this email.",
+    },
+    accessRequestDenied: {
+      subject: "Your access request - {serverName}",
+      preview: "An update on your request to join {serverName}",
+      heading: "Your request was declined",
+      intro:
+        "An administrator reviewed your request to join {serverName} and declined it.",
+      reason: "Reason: {reason}",
+      footer: "If you didn't ask to join, you can ignore this email.",
+    },
   },
   placeholders: {
     serverName: "Server name",
@@ -848,6 +939,8 @@ export const en: Messages = {
     passwordsDoNotMatch: "Passwords do not match",
     pinRequired: "PIN is required",
     seerrQuotaRange: "Requests and days must be between 1 and 100",
+    accessRequestMessageMaxLength: "Message must be 500 characters or less",
+    denyReasonMaxLength: "Reason must be 500 characters or less",
   },
   config: {
     errorTitle: "Configuration Error",
@@ -899,5 +992,11 @@ export const en: Messages = {
     applicationUrlNotConfigured: "Application URL is not configured.",
     invalidVerificationToken: "Invalid or expired verification token.",
     noEmailOnFile: "No email address is on file.",
+    accessRequestsUnavailable:
+      "This server isn't accepting access requests right now.",
+    inviteEmailMismatch:
+      "This invite was issued for a different email address.",
+    noInviteProfile:
+      "No profile is available for new members. Create one first.",
   },
 }

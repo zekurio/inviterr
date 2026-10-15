@@ -9,6 +9,8 @@ const ACCENTED_MESSAGE_TYPES: readonly EmailMessageType[] = [
   "passwordReset",
   "expiryWarning",
   "accountRenewed",
+  "accessRequestReceived",
+  "accessRequestApproved",
 ]
 
 const { logoBase64 } = vi.hoisted(() => ({

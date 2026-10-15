@@ -114,6 +114,22 @@ export const password_reset_notifications = sqliteTable(
   },
 )
 
+// Pending public join requests. Rows only exist while a request awaits review:
+// approval turns a row into an email-locked invite and denial deletes it.
+export const access_requests = sqliteTable(
+  "access_requests",
+  {
+    id: text().primaryKey(),
+    email: text().notNull(),
+    message: text(),
+    expires_at: integer({ mode: "timestamp_ms" }).notNull(),
+    created_at: integer({ mode: "timestamp_ms" })
+      .notNull()
+      .default(DEFAULT_TIMESTAMP_MS),
+  },
+  (table) => [uniqueIndex("access_requests_email_unique").on(table.email)],
+)
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey().$defaultFn(createId),
   userId: text("user_id")
@@ -152,6 +168,9 @@ export const invites = sqliteTable("invites", {
     .default(false),
   useLimit: integer("use_limit"),
   useCount: integer("use_count").notNull().default(0),
+  // Set on invites generated from an approved access request: redemption must
+  // use this address, and the link proves the applicant owns it.
+  email: text(),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
   // Days of access granted to each redeemer, counted from redemption. Null
   // keeps redeemed users non-expiring.
@@ -279,6 +298,7 @@ export const schema = {
   emailVerificationTokens,
   password_reset_notifications,
   pending_redemptions,
+  access_requests,
   profilesRelations,
   usersRelations,
   sessionsRelations,
@@ -303,3 +323,4 @@ export type NewEmailVerificationToken =
 export type PendingRedemption = typeof pending_redemptions.$inferSelect
 export type PasswordResetNotification =
   typeof password_reset_notifications.$inferSelect
+export type AccessRequest = typeof access_requests.$inferSelect

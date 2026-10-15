@@ -9,6 +9,7 @@ import {
   Edit,
   Hourglass,
   ListChecks,
+  Mail,
   Plus,
   Trash,
   Tv,
@@ -246,6 +247,14 @@ const InviteCard = memo(function InviteCard({
           <span className="flex min-w-0 items-center gap-1">
             <Tv className="size-3 shrink-0" />
             <span className="truncate">{invite.profileName}</span>
+          </span>
+        )}
+        {invite.email && (
+          <span className="flex min-w-0 items-center gap-1">
+            <Mail className="size-3 shrink-0" />
+            <span className="truncate">
+              {t("invites.lockedToEmail", { email: invite.email })}
+            </span>
           </span>
         )}
       </div>

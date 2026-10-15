@@ -1,4 +1,5 @@
 import type {
+  AccessRequestsSettingsDto,
   AppSettingsDto,
   EmailConfigDto,
   JellyfinConfigDto,
@@ -14,6 +15,7 @@ export interface DashboardSettingsBootstrap {
   jellyfin: JellyfinConfigDto
   seerr: SeerrConfigDto
   memberOnboarding: MemberOnboardingConfigDto
+  accessRequests: AccessRequestsSettingsDto
 }
 
 export interface PageAccessResult {
@@ -27,6 +29,7 @@ export interface AppBootstrapData {
   configError: string | null
   app: AppSettingsDto | null
   emailConfigured: boolean
+  accessRequestsEnabled: boolean
   session: SessionData | null
   shouldClearAuthCookies: boolean
 }

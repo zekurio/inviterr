@@ -29,6 +29,13 @@
       "when": 1792078924818,
       "tag": "0003_strange_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792099718898,
+      "tag": "0004_bouncy_the_hunter",
+      "breakpoints": true
     }
   ]
 }

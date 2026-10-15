@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => ({
     >(),
   runUserStartupMaintenance:
     vi.fn<typeof import("@/server/user-lifecycle").runUserStartupMaintenance>(),
+  pruneExpiredAccessRequests: vi.fn<
+    typeof import("@/server/access-requests").pruneExpiredAccessRequests
+  >(() => Promise.resolve(0)),
 }))
 
 vi.mock("@/lib/server/config.server", () => ({
@@ -25,6 +28,10 @@ vi.mock("@/lib/server/config.server", () => ({
 vi.mock("@/server/password-reset-notifications", () => ({
   startPasswordResetNotificationWatcher:
     mocks.startPasswordResetNotificationWatcher,
+}))
+
+vi.mock("@/server/access-requests", () => ({
+  pruneExpiredAccessRequests: mocks.pruneExpiredAccessRequests,
 }))
 
 vi.mock("@/server/user-lifecycle", () => ({
@@ -46,5 +53,6 @@ describe("startup tasks", () => {
     })
     expect(mocks.startPasswordResetNotificationWatcher).toHaveBeenCalledOnce()
     expect(mocks.startUserExpiryMaintenanceScheduler).toHaveBeenCalledOnce()
+    expect(mocks.pruneExpiredAccessRequests).toHaveBeenCalledOnce()
   })
 })

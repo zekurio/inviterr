@@ -103,6 +103,10 @@ const DEFAULT_MEMBER_ONBOARDING_CONFIG = {
   pages: [],
 }
 
+const DEFAULT_ACCESS_REQUESTS_CONFIG = {
+  enabled: false,
+}
+
 declare global {
   var __inviterrSetupKey: string | undefined
 }
@@ -140,6 +144,18 @@ const configSchema = Type.Object({
     }),
     DEFAULT_MEMBER_ONBOARDING_CONFIG,
   ),
+  // Public access request page. Approved requests become invites for
+  // profileId, or for the default profile when it is unset or was deleted.
+  accessRequests: defaulted(
+    Type.Object({
+      enabled: defaulted(
+        Type.Boolean(),
+        DEFAULT_ACCESS_REQUESTS_CONFIG.enabled,
+      ),
+      profileId: Type.Optional(stringSchema({ minLength: 1 })),
+    }),
+    DEFAULT_ACCESS_REQUESTS_CONFIG,
+  ),
   jellyfin: Type.Object({
     internalUrl: Type.String({ format: "uri" }),
     externalUrl: Type.Optional(Type.String({ format: "uri" })),
@@ -174,6 +190,7 @@ export type EmailConfig = NonNullable<Config["email"]>
 export type EmailBrandingConfig = NonNullable<EmailConfig["branding"]>
 export type BrandingImageConfig = StaticDecode<typeof brandingImageSchema>
 export type MemberOnboardingConfig = Config["memberOnboarding"]
+export type AccessRequestsConfig = Config["accessRequests"]
 const CONFIG_DIRECTORY_MODE = 0o700
 const CONFIG_FILE_MODE = 0o600
 
@@ -497,6 +514,10 @@ class ConfigManager {
     return this.get().memberOnboarding
   }
 
+  get accessRequests(): AccessRequestsConfig {
+    return this.get().accessRequests
+  }
+
   get email(): EmailConfig | undefined {
     return this.get().email
   }
@@ -550,6 +571,7 @@ class ConfigManager {
       },
       auth: { ...DEFAULT_AUTH_CONFIG },
       memberOnboarding: DEFAULT_MEMBER_ONBOARDING_CONFIG,
+      accessRequests: DEFAULT_ACCESS_REQUESTS_CONFIG,
       jellyfin: jellyfinConfig,
     }
 
@@ -594,6 +616,16 @@ class ConfigManager {
     const updatedConfig = {
       ...current,
       memberOnboarding: values,
+    }
+    await this.save(updatedConfig)
+    this.config = updatedConfig
+  }
+
+  async setAccessRequests(values: AccessRequestsConfig): Promise<void> {
+    const current = this.get()
+    const updatedConfig = {
+      ...current,
+      accessRequests: values,
     }
     await this.save(updatedConfig)
     this.config = updatedConfig

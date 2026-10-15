@@ -7,11 +7,13 @@ export function DashboardPageShell({
   activeTab,
   activeSettingsTab,
   appTitle,
+  pendingAccessRequestCount,
   session,
   settingsData,
   invitesData,
   profilesData,
   usersData,
+  accessRequestsData,
   historyData,
 }: DashboardPageData) {
   return (
@@ -30,10 +32,12 @@ export function DashboardPageShell({
           <DashboardTabsView
             activeTab={activeTab}
             activeSettingsTab={activeSettingsTab}
+            pendingAccessRequestCount={pendingAccessRequestCount}
             settingsData={settingsData}
             invitesData={invitesData}
             profilesData={profilesData}
             usersData={usersData}
+            accessRequestsData={accessRequestsData}
             historyData={historyData}
           />
         </div>

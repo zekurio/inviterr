@@ -34,6 +34,7 @@ type InviteListItem = {
   isDisabled: boolean
   useLimit: number | null
   useCount: number
+  email: string | null
   expiresAt: string | null
   accessDurationDays: number | null
   createdAt: string
@@ -74,10 +75,13 @@ type InviteRecord = {
   isDisabled: boolean
   useLimit: number | null
   useCount: number
+  email: string | null
   expiresAt: Date | null
   access_duration_days: number | null
   createdAt: Date
 }
+
+const INVITE_CODE_ATTEMPTS = 10
 
 const inviteListColumns = {
   id: invites.id,
@@ -87,6 +91,7 @@ const inviteListColumns = {
   isDisabled: invites.isDisabled,
   useLimit: invites.useLimit,
   useCount: invites.useCount,
+  email: invites.email,
   expiresAt: invites.expiresAt,
   access_duration_days: invites.access_duration_days,
   createdAt: invites.createdAt,
@@ -104,6 +109,7 @@ function toInviteListItem(
     isDisabled: invite.isDisabled,
     useLimit: invite.useLimit,
     useCount: invite.useCount,
+    email: invite.email,
     expiresAt: invite.expiresAt?.toISOString() ?? null,
     accessDurationDays: invite.access_duration_days,
     createdAt: invite.createdAt.toISOString(),
@@ -174,7 +180,11 @@ function getInvitesSearchFilter(query: string | undefined): SQL | undefined {
   }
 
   const pattern = `%${query}%`
-  return or(like(invites.code, pattern), like(profiles.name, pattern))
+  return or(
+    like(invites.code, pattern),
+    like(profiles.name, pattern),
+    like(invites.email, pattern),
+  )
 }
 
 function getInvitesOrderBy(
@@ -208,11 +218,8 @@ export async function createInviteService(
     return error(ErrorCode.NOT_FOUND, "Profile not found")
   }
 
-  let code = parsed.data.code
-    ? normalizeInviteCode(parsed.data.code)
-    : generateInviteCode()
-
-  if (parsed.data.code) {
+  const code = parsed.data.code ? normalizeInviteCode(parsed.data.code) : null
+  if (code) {
     const [existingInvite] = await db
       .select()
       .from(invites)
@@ -220,46 +227,58 @@ export async function createInviteService(
     if (existingInvite) {
       return error(ErrorCode.ALREADY_EXISTS, "Invite code is already in use")
     }
-  } else {
-    let attempts = 0
-    while (attempts < 10) {
-      const [existingInvite] = await db
-        .select()
-        .from(invites)
-        .where(eq(invites.code, code))
-      if (!existingInvite) {
-        break
-      }
+  }
 
-      code = generateInviteCode()
-      attempts++
-    }
+  const values = {
+    profileId: parsed.data.profileId,
+    isDisabled: false,
+    useLimit: parsed.data.useLimit ?? null,
+    useCount: 0,
+    expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+    access_duration_days: parsed.data.accessDurationDays ?? null,
+    createdById: createdById ?? null,
+    createdAt: new Date(),
+  }
+  const invite = code
+    ? (
+        await db
+          .insert(invites)
+          .values({ ...values, id: crypto.randomUUID(), code })
+          .returning()
+      )[0]
+    : await insertInviteWithGeneratedCode(values)
+  if (!invite) {
+    return error(
+      ErrorCode.OPERATION_FAILED,
+      "Failed to generate unique invite code. Please try again.",
+    )
+  }
 
-    if (attempts >= 10) {
-      return error(
-        ErrorCode.OPERATION_FAILED,
-        "Failed to generate unique invite code. Please try again.",
-      )
+  return success(toInviteListItem(invite, profile.name))
+}
+
+// The unique index on the code decides collisions, so concurrent creators can
+// never claim the same generated code. Returns null when every attempt hits an
+// existing code.
+export async function insertInviteWithGeneratedCode(
+  values: Omit<typeof invites.$inferInsert, "id" | "code">,
+) {
+  for (let attempt = 0; attempt < INVITE_CODE_ATTEMPTS; attempt++) {
+    const [invite] = await db
+      .insert(invites)
+      .values({
+        ...values,
+        id: crypto.randomUUID(),
+        code: generateInviteCode(),
+      })
+      .onConflictDoNothing({ target: invites.code })
+      .returning()
+    if (invite) {
+      return invite
     }
   }
 
-  const [invite] = await db
-    .insert(invites)
-    .values({
-      id: crypto.randomUUID(),
-      code,
-      profileId: parsed.data.profileId,
-      isDisabled: false,
-      useLimit: parsed.data.useLimit ?? null,
-      useCount: 0,
-      expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
-      access_duration_days: parsed.data.accessDurationDays ?? null,
-      createdById: createdById ?? null,
-      createdAt: new Date(),
-    })
-    .returning()
-
-  return success(toInviteListItem(invite, profile.name))
+  return null
 }
 
 export async function updateInviteService(

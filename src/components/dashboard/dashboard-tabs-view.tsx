@@ -9,8 +9,10 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react"
+import { useState } from "react"
 import { toast } from "sonner"
 
+import { AccessRequestsCard } from "@/components/access-requests/access-requests-card"
 import { InviteHistoryTable } from "@/components/invites/invite-history-table"
 import { InvitesGrid } from "@/components/invites/invites-grid"
 import { ProfilesGrid } from "@/components/profiles/profiles-grid"
@@ -25,6 +27,7 @@ import {
 import type {
   MediaLibraryDto,
   PagedInviteHistoryDto,
+  PendingAccessRequestsDto,
   PagedInvitesDto,
   ProfileDto,
 } from "@/lib/api/contracts/admin"
@@ -69,6 +72,7 @@ function getTabContentId(baseId: string, value: string): string {
 interface DashboardTabsViewProps {
   activeTab: DashboardTab
   activeSettingsTab: DashboardSettingsTab
+  pendingAccessRequestCount: number
   settingsData: DashboardSettingsBootstrap
   invitesData: {
     invites: PagedInvitesDto
@@ -87,6 +91,10 @@ interface DashboardTabsViewProps {
     query: string
     error: string | null
   }
+  accessRequestsData: {
+    data: PendingAccessRequestsDto
+    error: string | null
+  }
   historyData: {
     page: PagedInviteHistoryDto
     query: string
@@ -97,14 +105,20 @@ interface DashboardTabsViewProps {
 function DashboardTabsViewInner({
   activeTab,
   activeSettingsTab,
+  pendingAccessRequestCount,
   settingsData,
   invitesData,
   profilesData,
   usersData,
+  accessRequestsData,
   historyData,
 }: DashboardTabsViewProps) {
   const navigate = useNavigate()
   const t = useTranslations()
+  // Each tab is its own route, so this resets from fresh loader data on every
+  // tab switch; the Users tab card keeps it current after decisions.
+  const [pendingCount, setPendingCount] = useState(pendingAccessRequestCount)
+  const pendingLabel = t("accessRequests.pendingCount", { count: pendingCount })
   const activeSettingsTabDirty =
     useDashboardSettingsActiveTabDirty(activeSettingsTab)
 
@@ -141,6 +155,17 @@ function DashboardTabsViewInner({
             aria-controls={getTabContentId(DASHBOARD_TABS_BASE_ID, value)}
           >
             {t(labelKey)}
+            {value === "users" && pendingCount > 0 && (
+              <>
+                <span
+                  aria-hidden
+                  className="bg-primary text-primary-foreground ml-1.5 min-w-5 rounded-full px-1.5 text-xs leading-5 tabular-nums"
+                >
+                  {pendingCount}
+                </span>
+                <span className="sr-only">{pendingLabel}</span>
+              </>
+            )}
           </TabsTrigger>
         ))}
       </TabsList>
@@ -165,11 +190,18 @@ function DashboardTabsViewInner({
         aria-labelledby={getTabTriggerId(DASHBOARD_TABS_BASE_ID, "users")}
         className="md:mt-4"
       >
-        <UsersTable
-          initialData={usersData.data}
-          initialQuery={usersData.query}
-          initialError={usersData.error}
-        />
+        <div className="space-y-4">
+          <AccessRequestsCard
+            initialData={accessRequestsData.data}
+            initialError={accessRequestsData.error}
+            onCountChange={setPendingCount}
+          />
+          <UsersTable
+            initialData={usersData.data}
+            initialQuery={usersData.query}
+            initialError={usersData.error}
+          />
+        </div>
       </TabsContent>
 
       <TabsContent
@@ -217,9 +249,23 @@ function DashboardTabsViewInner({
             key={value}
             value={value}
             className={MOBILE_TAB_CLASS_NAME}
-            aria-label={t(labelKey)}
+            aria-label={
+              value === "users" && pendingCount > 0
+                ? `${t(labelKey)}, ${pendingLabel}`
+                : t(labelKey)
+            }
           >
-            <Icon className="h-4 w-4" />
+            <span className="relative">
+              <Icon className="h-4 w-4" />
+              {value === "users" && pendingCount > 0 && (
+                <span
+                  aria-hidden
+                  className="bg-primary text-primary-foreground absolute -top-1.5 left-2.5 min-w-4 rounded-full px-1 text-[9px] leading-4 tabular-nums"
+                >
+                  {pendingCount}
+                </span>
+              )}
+            </span>
             {t(labelKey)}
           </TabsTrigger>
         ))}
