@@ -516,6 +516,18 @@ async function deleteManagedUserAcrossSystems(
   let failedStage: ManagedUserDeletionStage = "sessions"
   let deletedFromJellyfin = false
   let deletedFromSeerr = false
+  const recordDeletion = (stoppedAt?: ManagedUserDeletionStage) =>
+    recordAuditEvent(audit.actor, {
+      action: "user.deleted",
+      target: { id: userId, label: jellyfinUser?.name ?? dbUser?.email },
+      details: {
+        email: dbUser?.email ?? null,
+        deletedFromJellyfin,
+        deletedFromSeerr,
+        ...(stoppedAt ? { failedStage: stoppedAt } : {}),
+      },
+      batchId: audit.batchId,
+    })
 
   try {
     await revokeAllUserSessions(userId)
@@ -537,16 +549,7 @@ async function deleteManagedUserAcrossSystems(
       await deleteAppUserData(dbUser.userId)
     }
 
-    await recordAuditEvent(audit.actor, {
-      action: "user.deleted",
-      target: { id: userId, label: jellyfinUser?.name ?? dbUser?.email },
-      details: {
-        email: dbUser?.email ?? null,
-        deletedFromJellyfin,
-        deletedFromSeerr,
-      },
-      batchId: audit.batchId,
-    })
+    await recordDeletion()
 
     return {
       success: true,
@@ -571,6 +574,11 @@ async function deleteManagedUserAcrossSystems(
         deletedFromSeerr,
       },
     )
+    // Jellyfin and Seerr deletions cannot be undone, so a deletion that stops
+    // at a later stage is still recorded; a retry records the remaining cleanup.
+    if (deletedFromJellyfin || deletedFromSeerr) {
+      await recordDeletion(failedStage)
+    }
     return {
       success: false,
       code,
@@ -901,6 +909,22 @@ async function updatePreparedManagedUser(
         : {}),
     })
     .where(eq(users.userId, userId))
+  await recordManagedUserUpdate(
+    audit,
+    {
+      dbUser,
+      jellyfinUser,
+      profileName: effectiveState.currentProfileName,
+    },
+    {
+      userId,
+      profileName: effectiveState.effectiveProfileName,
+      email: normalizedEmail,
+      emailVerified,
+      isDisabled: effectiveState.isDisabled,
+      expiresAt: nextExpiresAt,
+    },
+  )
 
   if (
     configManager.seerr &&
@@ -957,46 +981,48 @@ async function updatePreparedManagedUser(
     expiresAt: nextExpiresAt?.toISOString() ?? null,
   }
 
-  await recordManagedUserUpdate(audit, {
-    dbUser,
-    jellyfinUser,
-    previousProfileName: effectiveState.currentProfileName,
-    result,
-  })
-
   return success(result)
 }
 
 // Shared by the single and bulk update paths so both record the same fields.
+// Called once the database write commits, before Seerr sync or expiry
+// enforcement can still fail; an expiry disablement records its own event.
 async function recordManagedUserUpdate(
   audit: AuditScope,
-  input: {
+  before: {
     dbUser: DbUserRow | undefined
     jellyfinUser: JellyfinUserListItem | null
-    previousProfileName: string | null
-    result: UpdateManagedUserResult
+    profileName: string | null
+  },
+  after: {
+    userId: string
+    profileName: string | null
+    email: string | null
+    emailVerified: boolean
+    isDisabled: boolean
+    expiresAt: Date | null
   },
 ): Promise<void> {
   await recordAuditChange(audit.actor, {
     action: "user.updated",
     target: {
-      id: input.result.userId,
-      label: input.jellyfinUser?.name ?? input.dbUser?.email,
+      id: after.userId,
+      label: before.jellyfinUser?.name ?? before.dbUser?.email,
     },
     details: diffAuditFields(
       {
-        profile: input.previousProfileName,
-        email: input.dbUser?.email,
-        emailVerified: input.dbUser?.emailVerified ?? false,
-        isDisabled: input.jellyfinUser?.isDisabled ?? true,
-        expiresAt: input.dbUser?.expiresAt,
+        profile: before.profileName,
+        email: before.dbUser?.email,
+        emailVerified: before.dbUser?.emailVerified ?? false,
+        isDisabled: before.jellyfinUser?.isDisabled ?? true,
+        expiresAt: before.dbUser?.expiresAt,
       },
       {
-        profile: input.result.profileName,
-        email: input.result.email,
-        emailVerified: input.result.emailVerified,
-        isDisabled: input.result.isDisabled,
-        expiresAt: input.result.expiresAt,
+        profile: after.profileName,
+        email: after.email,
+        emailVerified: after.emailVerified,
+        isDisabled: after.isDisabled,
+        expiresAt: after.expiresAt,
       },
     ),
     batchId: audit.batchId,
@@ -1378,6 +1404,22 @@ export async function updateManagedUserService(
         : {}),
     })
     .where(eq(users.userId, parsedUserId.data))
+  await recordManagedUserUpdate(
+    { actor },
+    {
+      dbUser,
+      jellyfinUser,
+      profileName: effectiveState.currentProfileName,
+    },
+    {
+      userId: parsedUserId.data,
+      profileName: effectiveState.effectiveProfileName,
+      email: normalizedEmail,
+      emailVerified,
+      isDisabled: effectiveState.isDisabled,
+      expiresAt: nextExpiresAt,
+    },
+  )
 
   if (
     configManager.seerr &&
@@ -1433,16 +1475,6 @@ export async function updateManagedUserService(
     isDisabled,
     expiresAt: nextExpiresAt?.toISOString() ?? null,
   }
-
-  await recordManagedUserUpdate(
-    { actor },
-    {
-      dbUser,
-      jellyfinUser,
-      previousProfileName: effectiveState.currentProfileName,
-      result,
-    },
-  )
 
   return success(result)
 }

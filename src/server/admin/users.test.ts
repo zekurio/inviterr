@@ -340,6 +340,7 @@ describe("deleteManagedUserService", () => {
     expect(
       (await setup.database.db.query.sessions.findFirst())?.revokedAt,
     ).toBeInstanceOf(Date)
+    expect(await setup.database.db.query.audit_events.findMany()).toEqual([])
 
     const retried = await setup.usersService.deleteManagedUserService(
       TEST_ADMIN_ACTOR,
@@ -381,6 +382,20 @@ describe("deleteManagedUserService", () => {
     expect(
       (await setup.database.db.query.sessions.findFirst())?.revokedAt,
     ).toBeInstanceOf(Date)
+    // The Jellyfin account is already gone, so the stopped deletion is audited.
+    expect(await setup.database.db.query.audit_events.findMany()).toEqual([
+      expect.objectContaining({
+        actor_id: TEST_ADMIN_ACTOR.id,
+        action: "user.deleted",
+        target_id: managedDbUser.userId,
+        details: {
+          email: managedDbUser.email,
+          deletedFromJellyfin: true,
+          deletedFromSeerr: false,
+          failedStage: "seerr",
+        },
+      }),
+    ])
 
     const retried = await setup.usersService.deleteManagedUserService(
       TEST_ADMIN_ACTOR,

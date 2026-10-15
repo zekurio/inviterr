@@ -6,6 +6,7 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import { auditActorFromSession } from "@/lib/audit"
 import { resolveLocale } from "@/lib/i18n"
 import { emailVerificationSchema } from "@/lib/schemas"
 import { getSession } from "@/lib/server/auth"
@@ -60,15 +61,17 @@ export async function verifyEmail(
   }
 
   const verifiedEmail = verified.pendingEmail ?? verified.email
-  // The token holder acts for the account; the name is only known when the
-  // link is opened from that account's own session.
-  const verifierName =
-    sessionOverride?.userId === verified.userId ? sessionOverride.name : null
+  // The token holder acts for the account; name and role are only known when
+  // the link is opened from that account's own session.
+  const ownSession =
+    sessionOverride?.userId === verified.userId ? sessionOverride : null
   await recordAuditEvent(
-    { type: "user", id: verified.userId, name: verifierName },
+    ownSession
+      ? auditActorFromSession(ownSession)
+      : { type: "user", id: verified.userId, name: null },
     {
       action: "user.email_verified",
-      target: { id: verified.userId, label: verifierName },
+      target: { id: verified.userId, label: ownSession?.name },
       details: { email: verifiedEmail },
     },
   )

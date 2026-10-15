@@ -15,6 +15,7 @@ import {
   vi,
 } from "vitest"
 
+import { SYSTEM_AUDIT_ACTOR } from "@/lib/audit"
 import type { SessionData } from "@/lib/session"
 import type { ORPCContext } from "@/server/orpc/context"
 import type { orpcRouter } from "@/server/orpc/router"
@@ -239,6 +240,26 @@ describe("audit log", () => {
       "invite.deleted",
       "invite.deleted",
     ])
+  })
+
+  it("matches target searches literally", async () => {
+    const setup = await loadAuditModules()
+    await Promise.all(
+      ["FAMILY_01", "FAMILYX01", "100%"].map((label) =>
+        setup.audit.recordAuditEvent(SYSTEM_AUDIT_ACTOR, {
+          action: "invite.reconciled",
+          target: { id: crypto.randomUUID(), label },
+        }),
+      ),
+    )
+    const client = createClient(setup, adminSession)
+    const searchLabels = async (target: string) =>
+      (await client.admin.audit.page({ target })).items.map(
+        (item) => item.targetLabel,
+      )
+
+    expect(await searchLabels("family_01")).toEqual(["FAMILY_01"])
+    expect(await searchLabels("%")).toEqual(["100%"])
   })
 
   it("records settings changes without storing secrets", async () => {

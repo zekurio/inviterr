@@ -9,11 +9,13 @@ import { auditEventsPageInputSchema } from "@/server/api/schemas/admin-schemas"
 export const Route = createFileRoute("/dashboard/audit")({
   validateSearch: (search): AuditEventsPageInputDto =>
     parse(auditEventsPageInputSchema, search),
-  loader: ({ location }) =>
+  // Search params identify the match, so paging and filtering re-run the loader.
+  loaderDeps: ({ search }) => search,
+  loader: ({ deps }) =>
     getDashboardPageDataFn({
       data: {
         activeTab: "audit",
-        audit: location.search,
+        audit: deps,
       },
     }),
   component: DashboardAuditPage,

@@ -1,4 +1,15 @@
-import { and, count, desc, eq, gte, like, lte, or, type SQL } from "drizzle-orm"
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  lte,
+  or,
+  sql,
+  type AnyColumn,
+  type SQL,
+} from "drizzle-orm"
 import type { StaticDecode, StaticEncode } from "typebox"
 
 import {
@@ -71,7 +82,7 @@ function getAuditEventsFilter(
     auditPage.actor
       ? or(
           eq(audit_events.actor_id, auditPage.actor),
-          like(audit_events.actor_name, `%${auditPage.actor}%`),
+          containsText(audit_events.actor_name, auditPage.actor),
         )
       : undefined,
     auditPage.action ? eq(audit_events.action, auditPage.action) : undefined,
@@ -81,7 +92,7 @@ function getAuditEventsFilter(
     auditPage.target
       ? or(
           eq(audit_events.target_id, auditPage.target),
-          like(audit_events.target_label, `%${auditPage.target}%`),
+          containsText(audit_events.target_label, auditPage.target),
         )
       : undefined,
     auditPage.batch ? eq(audit_events.batch_id, auditPage.batch) : undefined,
@@ -92,6 +103,12 @@ function getAuditEventsFilter(
       ? lte(audit_events.created_at, new Date(auditPage.to))
       : undefined,
   )
+}
+
+// Matches the text literally: LIKE wildcards in the search are escaped.
+function containsText(column: AnyColumn, text: string): SQL {
+  const pattern = `%${text.replace(/[\\%_]/g, "\\$&")}%`
+  return sql`${column} like ${pattern} escape '\\'`
 }
 
 function toAuditEventDto(event: AuditEvent): AuditEventDto {
