@@ -31,6 +31,8 @@ export interface Messages {
     select: string
     done: string
     selectedCount: string
+    daySingle: string
+    dayPlural: string
   }
   auth: {
     login: string
@@ -355,6 +357,14 @@ export interface Messages {
     expiresOnOptional: string
     expiresDescription: string
     unlimitedWarning: string
+    accessDurationOptional: string
+    accessDurationNoLimit: string
+    accessDurationCustomPlaceholder: string
+    accessDurationDescription: string
+    accessDurationEditHint: string
+    accessDurationLabel: string
+    accessDurationBadge: string
+    accessDurationNotice: string
     continueToDashboard: string
     onboardingPageOf: string
     onboardingBack: string
@@ -715,6 +725,7 @@ export interface Messages {
     inviteCodeRequired: string
     inviteCodeFormPattern: string
     expiryFuture: string
+    accessDurationRange: string
     invitePropertyRequired: string
     tokenRequired: string
     currentPasswordRequired: string

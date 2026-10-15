@@ -40,6 +40,7 @@ const validation = {
   inviteCodeRequired: "validation.inviteCodeRequired",
   inviteCodeFormPattern: "validation.inviteCodeFormPattern",
   expiryFuture: "validation.expiryFuture",
+  accessDurationRange: "validation.accessDurationRange",
   invitePropertyRequired: "validation.invitePropertyRequired",
   tokenRequired: "validation.tokenRequired",
   currentPasswordRequired: "validation.currentPasswordRequired",
@@ -66,6 +67,7 @@ const validation = {
 } as const
 
 const SEERR_QUOTA_DAYS_MAX = 100
+export const INVITE_ACCESS_DURATION_MAX_DAYS = 3650
 export const MAX_AVATAR_BYTES = 5 * 1024 * 1024
 export const MAX_AVATAR_BASE64_LENGTH =
   Math.ceil((MAX_AVATAR_BYTES * 4) / 3) + 4
@@ -284,6 +286,12 @@ export const updateManagedUserSchema = refine(
   },
 )
 
+const inviteAccessDurationDaysSchema = Type.Integer({
+  minimum: 1,
+  maximum: INVITE_ACCESS_DURATION_MAX_DAYS,
+  errorMessage: validation.accessDurationRange,
+})
+
 export const createInviteSchema = refine(
   Type.Object({
     profileId: Type.String({
@@ -306,6 +314,7 @@ export const createInviteSchema = refine(
       nullable(Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER })),
     ),
     expiresAt: Type.Optional(nullable(Type.String({ format: "date-time" }))),
+    accessDurationDays: Type.Optional(nullable(inviteAccessDurationDaysSchema)),
   }),
   (value) => {
     if (!value.expiresAt) {
@@ -344,13 +353,17 @@ export const updateInviteSchema = refine(
       isDisabled: Type.Optional(Type.Boolean()),
       useLimit: Type.Optional(nullable(Type.Number({ minimum: 1 }))),
       expiresAt: Type.Optional(nullable(Type.String({ format: "date-time" }))),
+      accessDurationDays: Type.Optional(
+        nullable(inviteAccessDurationDaysSchema),
+      ),
     }),
     (value) =>
       value.profileId !== undefined ||
       value.code !== undefined ||
       value.isDisabled !== undefined ||
       value.useLimit !== undefined ||
-      value.expiresAt !== undefined,
+      value.expiresAt !== undefined ||
+      value.accessDurationDays !== undefined,
     {
       message: validation.invitePropertyRequired,
     },
@@ -540,9 +553,10 @@ export type ProfileFormValues = StaticDecode<typeof profileFormSchema>
 
 /**
  * Invite form schema - used in invite-form-dialog
- * useLimit is stored as a string in the form (for empty state handling).
+ * useLimit and accessDurationDays are stored as strings in the form (for empty
+ * state handling).
  */
-export const inviteFormSchema = refine(
+export const inviteFormSchema = superRefine(
   Type.Object({
     profileId: stringSchema({
       minLength: 1,
@@ -561,17 +575,24 @@ export const inviteFormSchema = refine(
     ),
     useLimit: Type.Optional(Type.String()),
     expiresAt: nullable(dateSchema),
+    accessDurationDays: Type.String(),
   }),
-  (value) => {
-    if (!value.expiresAt) {
-      return true
+  (value, ctx) => {
+    if (value.expiresAt && value.expiresAt.getTime() <= Date.now()) {
+      ctx.addIssue({ path: ["expiresAt"], message: validation.expiryFuture })
     }
 
-    return value.expiresAt.getTime() > Date.now()
-  },
-  {
-    message: validation.expiryFuture,
-    path: ["expiresAt"],
+    if (
+      hasValue(value.accessDurationDays) &&
+      (!isPositiveIntegerString(value.accessDurationDays) ||
+        Number.parseInt(value.accessDurationDays, 10) >
+          INVITE_ACCESS_DURATION_MAX_DAYS)
+    ) {
+      ctx.addIssue({
+        path: ["accessDurationDays"],
+        message: validation.accessDurationRange,
+      })
+    }
   },
 )
 

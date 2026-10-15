@@ -1,5 +1,14 @@
+import { writeFile } from "node:fs/promises"
+
+import { createORPCClient } from "@orpc/client"
+import { RPCLink } from "@orpc/client/fetch"
+import type { RouterClient } from "@orpc/server"
+import { RPCHandler } from "@orpc/server/fetch"
+import { eq } from "drizzle-orm"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import type { SessionData } from "@/lib/session"
+import type { procedures } from "@/server/orpc/procedures"
 import {
   configureTestEnvironment,
   createTestDatabase,
@@ -8,9 +17,23 @@ import {
 
 let testDatabase: TestDatabase | null = null
 
+const adminSession: SessionData = {
+  userId: "admin-1",
+  name: "Admin User",
+  avatarUrl: "https://app.test/avatar",
+  isAdmin: true,
+  email: "admin@example.com",
+  emailVerified: true,
+  locale: null,
+  createdAt: new Date(0).toISOString(),
+}
+
 async function loadInvitesServiceModules() {
   testDatabase = await createTestDatabase()
   configureTestEnvironment(testDatabase)
+  // The config manager is a process-wide singleton bound to the CONFIG_PATH it
+  // was first created with, so each temp environment needs a fresh one.
+  globalThis.__INVITERR_CONFIG_MANAGER__ = undefined
   vi.resetModules()
 
   const invitesService = await import("@/server/admin/invites")
@@ -23,9 +46,50 @@ async function loadInvitesServiceModules() {
   return { invitesService, database, schema, errors }
 }
 
+// Drives the real admin procedures over the RPC transport as a signed-in admin
+// of a configured instance, so input validation runs exactly as in production.
+async function createAdminRpcClient(testEnvironment: TestDatabase) {
+  await writeFile(
+    testEnvironment.configPath,
+    JSON.stringify({
+      jellyfin: { internalUrl: "http://jellyfin.test", apiKey: "test-key" },
+    }),
+  )
+  const orpc = await import("@/server/orpc/procedures")
+  const handler = new RPCHandler(orpc.procedures)
+  const link = new RPCLink({
+    url: "https://app.test/rpc",
+    headers: { origin: "https://app.test" },
+    fetch: async (request) => {
+      const handled = await handler.handle(request, {
+        prefix: "/rpc",
+        context: {
+          request,
+          requestId: "request-1",
+          clientIp: null,
+          userAgent: null,
+          resolveSession: () =>
+            Promise.resolve({
+              status: "authenticated" as const,
+              session: adminSession,
+              sessionRecord: null,
+            }),
+        },
+      })
+
+      return handled.matched
+        ? handled.response
+        : new Response(null, { status: 404 })
+    },
+  })
+
+  return createORPCClient<RouterClient<typeof procedures>>(link)
+}
+
 afterEach(async () => {
   await testDatabase?.cleanup()
   testDatabase = null
+  globalThis.__INVITERR_CONFIG_MANAGER__ = undefined
   vi.resetModules()
   vi.clearAllMocks()
 })
@@ -139,6 +203,95 @@ describe("invite management", () => {
     ).toMatchObject({ success: true, data: { isDisabled: true, useCount: 1 } })
     expect(await setup.database.db.query.invites.findMany()).toMatchObject([
       { id: inviteId, isDisabled: true, useCount: 1 },
+    ])
+  })
+
+  it("persists an invite access duration without changing the expiry of users who already redeemed it", async () => {
+    const setup = await loadInvitesServiceModules()
+    const profileId = crypto.randomUUID()
+    await setup.database.db.insert(setup.schema.profiles).values({
+      id: profileId,
+      name: "Trial",
+      policy: setup.schema.DEFAULT_PROFILE_POLICY,
+    })
+
+    const created = await setup.invitesService.createInviteService(undefined, {
+      profileId,
+      code: "TRIAL-30",
+      accessDurationDays: 30,
+    })
+    if (!created.success) {
+      throw new Error("Expected invite creation to succeed")
+    }
+    expect(created.data.accessDurationDays).toBe(30)
+
+    const existingExpiry = new Date("2030-01-01T00:00:00.000Z")
+    await setup.database.db.insert(setup.schema.users).values({
+      userId: "trial-user",
+      inviteId: created.data.id,
+      expiresAt: existingExpiry,
+    })
+
+    expect(
+      await setup.invitesService.updateInviteService(created.data.id, {
+        accessDurationDays: 7,
+      }),
+    ).toMatchObject({ success: true, data: { accessDurationDays: 7 } })
+    expect(await setup.invitesService.listInvitesPageService({})).toMatchObject(
+      {
+        success: true,
+        data: { items: [{ code: "TRIAL-30", accessDurationDays: 7 }] },
+      },
+    )
+    const redeemedUser = await setup.database.db.query.users.findFirst({
+      where: eq(setup.schema.users.userId, "trial-user"),
+    })
+    expect(redeemedUser?.expiresAt).toEqual(existingExpiry)
+
+    expect(
+      await setup.invitesService.updateInviteService(created.data.id, {
+        accessDurationDays: null,
+      }),
+    ).toMatchObject({ success: true, data: { accessDurationDays: null } })
+    expect(await setup.database.db.query.invites.findMany()).toMatchObject([
+      { id: created.data.id, access_duration_days: null },
+    ])
+  })
+
+  it("rejects out-of-range access durations at the admin RPC boundary without persisting them", async () => {
+    const setup = await loadInvitesServiceModules()
+    const client = await createAdminRpcClient(testDatabase!)
+    const profileId = crypto.randomUUID()
+    await setup.database.db.insert(setup.schema.profiles).values({
+      id: profileId,
+      name: "Trial",
+      policy: setup.schema.DEFAULT_PROFILE_POLICY,
+    })
+    await setup.database.db
+      .insert(setup.schema.users)
+      .values({ userId: adminSession.userId })
+
+    for (const accessDurationDays of [0, 3651, 1.5]) {
+      await expect(
+        client.admin.invites.create({ profileId, accessDurationDays }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST", status: 400 })
+    }
+    expect(await setup.database.db.query.invites.findMany()).toEqual([])
+
+    const invite = await client.admin.invites.create({
+      profileId,
+      accessDurationDays: 90,
+    })
+    expect(invite.accessDurationDays).toBe(90)
+
+    await expect(
+      client.admin.invites.update({
+        inviteId: invite.id,
+        updates: { accessDurationDays: -1 },
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", status: 400 })
+    expect(await setup.database.db.query.invites.findMany()).toMatchObject([
+      { id: invite.id, access_duration_days: 90 },
     ])
   })
 })

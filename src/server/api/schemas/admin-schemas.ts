@@ -1,6 +1,7 @@
 import { Type, type StaticDecode, type StaticEncode } from "typebox"
 
 import { ErrorCode } from "@/lib/api/contracts/errors"
+import { INVITE_ACCESS_DURATION_MAX_DAYS } from "@/lib/schemas"
 import {
   defaulted,
   enumValues,
@@ -211,6 +212,7 @@ export const inviteSchema = Type.Object({
   useLimit: nullable(Type.Number()),
   useCount: Type.Number(),
   expiresAt: nullable(DateTimeStringSchema),
+  accessDurationDays: nullable(Type.Integer()),
   createdAt: DateTimeStringSchema,
   status: enumValues(inviteStatusValues),
 })
@@ -232,6 +234,9 @@ export const createInviteBodySchema = Type.Object({
     nullable(boundedIntSchema(1, Number.MAX_SAFE_INTEGER)),
   ),
   expiresAt: Type.Optional(nullable(DateTimeStringSchema)),
+  accessDurationDays: Type.Optional(
+    nullable(boundedIntSchema(1, INVITE_ACCESS_DURATION_MAX_DAYS)),
+  ),
 })
 
 export const updateInviteBodySchema = Type.Object({
@@ -242,6 +247,9 @@ export const updateInviteBodySchema = Type.Object({
     nullable(boundedIntSchema(1, Number.MAX_SAFE_INTEGER)),
   ),
   expiresAt: Type.Optional(nullable(DateTimeStringSchema)),
+  accessDurationDays: Type.Optional(
+    nullable(boundedIntSchema(1, INVITE_ACCESS_DURATION_MAX_DAYS)),
+  ),
 })
 
 export const userProfileOptionSchema = Type.Object({

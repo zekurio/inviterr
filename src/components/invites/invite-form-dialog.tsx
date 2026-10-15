@@ -35,7 +35,11 @@ import type { InviteDto, ProfileDto } from "@/lib/api/contracts/admin"
 import { reportClientError } from "@/lib/client-error"
 import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
-import { inviteFormSchema, type InviteFormValues } from "@/lib/schemas"
+import {
+  INVITE_ACCESS_DURATION_MAX_DAYS,
+  inviteFormSchema,
+  type InviteFormValues,
+} from "@/lib/schemas"
 import { standardSchema } from "@/lib/validation"
 
 interface InviteFormDialogProps {
@@ -46,11 +50,14 @@ interface InviteFormDialogProps {
   onSaveComplete?: (invite: InviteDto) => void
 }
 
+const ACCESS_DURATION_PRESETS = [null, 7, 30, 90] as const
+
 const defaultFormValues: InviteFormValues = {
   profileId: "",
   code: "",
   useLimit: "",
   expiresAt: null,
+  accessDurationDays: "",
 }
 
 export function InviteFormDialog({
@@ -73,6 +80,7 @@ export function InviteFormDialog({
           code: invite.code,
           useLimit: invite.useLimit?.toString() ?? "",
           expiresAt: invite.expiresAt ? new Date(invite.expiresAt) : null,
+          accessDurationDays: invite.accessDurationDays?.toString() ?? "",
         }
       : {
           ...defaultFormValues,
@@ -91,6 +99,10 @@ export function InviteFormDialog({
       return
     }
 
+    const accessDurationDays = data.accessDurationDays.trim()
+      ? Number.parseInt(data.accessDurationDays, 10)
+      : null
+
     try {
       const client = getBrowserORPCClient()
       if (invite) {
@@ -104,6 +116,7 @@ export function InviteFormDialog({
                 ? Number.parseInt(data.useLimit, 10)
                 : null,
               expiresAt: data.expiresAt?.toISOString() ?? null,
+              accessDurationDays,
             },
           }),
         )
@@ -125,6 +138,7 @@ export function InviteFormDialog({
           code: data.code || undefined,
           useLimit: data.useLimit ? Number.parseInt(data.useLimit, 10) : null,
           expiresAt: data.expiresAt?.toISOString() ?? null,
+          accessDurationDays,
         }),
       )
 
@@ -288,6 +302,62 @@ export function InviteFormDialog({
                       />
                       <FieldDescription>
                         {t("invites.expiresDescription")}
+                      </FieldDescription>
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+
+                <Controller
+                  name="accessDurationDays"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={`${id}-access-duration`}>
+                        {t("invites.accessDurationOptional")}
+                      </FieldLabel>
+                      <div className="flex flex-wrap gap-2">
+                        {ACCESS_DURATION_PRESETS.map((preset) => {
+                          const presetValue = preset?.toString() ?? ""
+                          const isSelected = field.value.trim() === presetValue
+                          return (
+                            <Button
+                              key={presetValue || "none"}
+                              type="button"
+                              size="sm"
+                              variant={isSelected ? "secondary" : "outline"}
+                              aria-pressed={isSelected}
+                              onClick={() =>
+                                setValue("accessDurationDays", presetValue, {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                })
+                              }
+                            >
+                              {preset === null
+                                ? t("invites.accessDurationNoLimit")
+                                : t("common.dayPlural", { count: preset })}
+                            </Button>
+                          )
+                        })}
+                      </div>
+                      <Input
+                        {...field}
+                        id={`${id}-access-duration`}
+                        type="number"
+                        aria-invalid={fieldState.invalid}
+                        placeholder={t(
+                          "invites.accessDurationCustomPlaceholder",
+                        )}
+                        min={1}
+                        max={INVITE_ACCESS_DURATION_MAX_DAYS}
+                      />
+                      <FieldDescription>
+                        {t("invites.accessDurationDescription")}
+                        {isEditMode &&
+                          ` ${t("invites.accessDurationEditHint")}`}
                       </FieldDescription>
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />

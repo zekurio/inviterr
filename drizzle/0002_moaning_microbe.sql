@@ -1,0 +1,1 @@
+ALTER TABLE `invites` ADD `access_duration_days` integer;

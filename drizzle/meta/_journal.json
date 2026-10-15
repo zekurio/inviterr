@@ -15,6 +15,13 @@
       "when": 1788290274607,
       "tag": "0001_password_reset_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792066996116,
+      "tag": "0002_moaning_microbe",
+      "breakpoints": true
     }
   ]
 }
