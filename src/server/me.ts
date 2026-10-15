@@ -550,18 +550,28 @@ export async function deleteMyAccount(
     userName: session.name,
     email: session.email,
   })
-  await deleteUser(session.userId)
+  const recordDeletion = (details: AuditDetails) =>
+    recordAuditEvent(auditActorFromSession(session), {
+      action: "user.deleted",
+      target: { id: session.userId, label: session.name },
+      details: { email: session.email, deletedFromSeerr, ...details },
+    })
+  try {
+    await deleteUser(session.userId)
+  } catch (err) {
+    // A deleted Seerr account cannot be restored, so the stopped deletion is
+    // still recorded before the failure propagates.
+    if (deletedFromSeerr) {
+      await recordDeletion({
+        deletedFromJellyfin: false,
+        failedStage: "jellyfin",
+      })
+    }
+    throw err
+  }
   // Recorded once the Jellyfin account is gone, so a failure in the local
   // cleanup below cannot drop the event.
-  await recordAuditEvent(auditActorFromSession(session), {
-    action: "user.deleted",
-    target: { id: session.userId, label: session.name },
-    details: {
-      email: session.email,
-      deletedFromJellyfin: true,
-      deletedFromSeerr,
-    },
-  })
+  await recordDeletion({ deletedFromJellyfin: true })
   await ensureMigrated()
   await deleteAppUserData(session.userId)
   await revokeAllUserSessions(session.userId)
