@@ -191,6 +191,7 @@ async function seedInvite(
     useLimit?: number | null
     useCount?: number
     expiresAt?: Date | null
+    access_duration_days?: number | null
   },
 ) {
   const invite = {
@@ -201,6 +202,7 @@ async function seedInvite(
     useLimit: values.useLimit ?? null,
     useCount: values.useCount ?? 0,
     expiresAt: values.expiresAt ?? null,
+    access_duration_days: values.access_duration_days ?? null,
   }
   await setup.database.db.insert(setup.schema.invites).values(invite)
   return invite
@@ -303,6 +305,54 @@ describe("redeemInvite", () => {
     password: "Password1",
     email: "user@example.com",
   }
+
+  it("shows the access duration before sign-up and expires the redeemed user that long after redemption", async () => {
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    await seedInvite(setup, {
+      code: "LIMIT123",
+      profileId: profile.id,
+      access_duration_days: 30,
+    })
+
+    const validation = expectSuccessfulInviteValidation(
+      await setup.inviteService.validateInvite(redeemInput.code),
+    )
+    expect(validation).toMatchObject({ valid: true, accessDurationDays: 30 })
+
+    const redeemStartedAt = Date.now()
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+    const redeemFinishedAt = Date.now()
+    const localUser = await setup.database.db.query.users.findFirst({
+      where: eq(setup.schema.users.userId, "jellyfin-user-1"),
+    })
+
+    expect(result).toMatchObject({ success: true })
+    if (!localUser?.expiresAt) {
+      throw new Error("Expected the redeemed user to have an expiry")
+    }
+    expect(localUser.createdAt.getTime()).toBeGreaterThanOrEqual(
+      redeemStartedAt,
+    )
+    expect(localUser.createdAt.getTime()).toBeLessThanOrEqual(redeemFinishedAt)
+    expect(localUser.expiresAt.getTime() - localUser.createdAt.getTime()).toBe(
+      30 * 24 * 60 * 60 * 1000,
+    )
+  })
+
+  it("keeps users redeemed from an invite without an access duration non-expiring", async () => {
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    await seedInvite(setup, { code: "LIMIT123", profileId: profile.id })
+
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+    const localUser = await setup.database.db.query.users.findFirst({
+      where: eq(setup.schema.users.userId, "jellyfin-user-1"),
+    })
+
+    expect(result).toMatchObject({ success: true })
+    expect(localUser).toMatchObject({ expiresAt: null })
+  })
 
   it("does not increment an invite that is already at its use limit", async () => {
     const setup = await loadInviteModules()

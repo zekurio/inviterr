@@ -40,6 +40,8 @@ export const de: Messages = {
     select: "Auswählen",
     done: "Fertig",
     selectedCount: "{count} ausgewählt",
+    daySingle: "{count} Tag",
+    dayPlural: "{count} Tage",
   },
   auth: {
     login: "Anmelden",
@@ -408,6 +410,16 @@ export const de: Messages = {
       "Wann die Einladung in deiner lokalen Zeit abläuft und nicht mehr gültig ist.",
     unlimitedWarning:
       "Diese Einladung hat kein Nutzungslimit und kein Ablaufdatum. Erwäge mindestens eine Einschränkung.",
+    accessDurationOptional: "Zugangsdauer (optional)",
+    accessDurationNoLimit: "Unbegrenzt",
+    accessDurationCustomPlaceholder: "Eigene Anzahl an Tagen",
+    accessDurationDescription:
+      "Wie lange über diese Einladung erstellte Konten Zugang behalten, gerechnet ab der Registrierung.",
+    accessDurationEditHint:
+      "Änderungen gelten nur für künftige Einlösungen. Bestehende Benutzer behalten ihr aktuelles Ablaufdatum.",
+    accessDurationLabel: "Zugangsdauer",
+    accessDurationBadge: "{duration} Zugang",
+    accessDurationNotice: "Dein Zugang gilt {duration} ab der Registrierung.",
     continueToDashboard: "Weiter zum Dashboard",
     onboardingPageOf: "Seite {current} von {total}",
     onboardingBack: "Zurück",
@@ -838,6 +850,8 @@ export const de: Messages = {
     inviteCodeFormPattern:
       "Der Einladungscode muss mindestens 8 Zeichen lang sein und darf nur Buchstaben, Zahlen oder Bindestriche enthalten",
     expiryFuture: "Das Ablaufdatum muss in der Zukunft liegen",
+    accessDurationRange:
+      "Die Zugangsdauer muss eine ganze Zahl von Tagen zwischen 1 und 3650 sein",
     invitePropertyRequired:
       "Mindestens eine Einladungseigenschaft muss angegeben werden",
     tokenRequired: "Token ist erforderlich",

@@ -53,6 +53,7 @@ import { createEmailVerificationToken } from "@/server/tokens"
 
 const ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 const CODE_LENGTH = 8
+const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 export function generateInviteCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH))
@@ -91,6 +92,7 @@ export async function validateInvite(code: string): Promise<
     valid: boolean
     profileName: string
     error?: string
+    accessDurationDays?: number | null
     onboardingSteps?: Array<{ id: string; title: string }>
   }>
 > {
@@ -105,6 +107,7 @@ export async function validateInvite(code: string): Promise<
       useLimit: invites.useLimit,
       useCount: invites.useCount,
       expiresAt: invites.expiresAt,
+      access_duration_days: invites.access_duration_days,
     })
     .from(invites)
     .where(eq(invites.code, normalizedCode))
@@ -171,6 +174,7 @@ export async function validateInvite(code: string): Promise<
   return success({
     valid: true,
     profileName: resolvedProfile.data.profileName,
+    accessDurationDays: invite.access_duration_days,
     onboardingSteps,
   })
 }
@@ -325,6 +329,7 @@ export async function redeemInvite(
         useLimit: invites.useLimit,
         useCount: invites.useCount,
         expiresAt: invites.expiresAt,
+        access_duration_days: invites.access_duration_days,
       })
       .from(invites)
       .where(eq(invites.code, code))
@@ -599,6 +604,9 @@ export async function redeemInvite(
       }
     }
 
+    // Access is counted from the moment the account is recorded, matching the
+    // createdAt the renewal lifetime ceiling is measured from.
+    const redeemedAt = new Date()
     try {
       await db.transaction(async (tx) => {
         await tx.insert(users).values({
@@ -608,18 +616,24 @@ export async function redeemInvite(
           locale: null,
           profileId: resolvedProfile.data.profileId,
           inviteId,
-          seerrSyncedAt: seerrConfigured ? new Date() : null,
-          expiresAt: null,
+          seerrSyncedAt: seerrConfigured ? redeemedAt : null,
+          expiresAt:
+            invite.access_duration_days === null
+              ? null
+              : new Date(
+                  redeemedAt.getTime() +
+                    invite.access_duration_days * MS_PER_DAY,
+                ),
           expiryWarningSentAt: null,
           expiryWarningSentFor: null,
-          createdAt: new Date(),
+          createdAt: redeemedAt,
         })
 
         await tx.insert(inviteUsages).values({
           id: crypto.randomUUID(),
           inviteId,
           userId: jellyfinUser.id,
-          usedAt: new Date(),
+          usedAt: redeemedAt,
         })
       })
 

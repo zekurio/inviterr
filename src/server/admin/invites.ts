@@ -35,6 +35,7 @@ type InviteListItem = {
   useLimit: number | null
   useCount: number
   expiresAt: string | null
+  accessDurationDays: number | null
   createdAt: string
   status: InviteStatus
 }
@@ -74,7 +75,21 @@ type InviteRecord = {
   useLimit: number | null
   useCount: number
   expiresAt: Date | null
+  access_duration_days: number | null
   createdAt: Date
+}
+
+const inviteListColumns = {
+  id: invites.id,
+  code: invites.code,
+  profileId: invites.profileId,
+  profileName: profiles.name,
+  isDisabled: invites.isDisabled,
+  useLimit: invites.useLimit,
+  useCount: invites.useCount,
+  expiresAt: invites.expiresAt,
+  access_duration_days: invites.access_duration_days,
+  createdAt: invites.createdAt,
 }
 
 function toInviteListItem(
@@ -90,6 +105,7 @@ function toInviteListItem(
     useLimit: invite.useLimit,
     useCount: invite.useCount,
     expiresAt: invite.expiresAt?.toISOString() ?? null,
+    accessDurationDays: invite.access_duration_days,
     createdAt: invite.createdAt.toISOString(),
     status: deriveInviteStatus(invite),
   }
@@ -101,17 +117,7 @@ export async function listInvitesService(): Promise<
   await ensureMigrated()
 
   const result = await db
-    .select({
-      id: invites.id,
-      code: invites.code,
-      profileId: invites.profileId,
-      profileName: profiles.name,
-      isDisabled: invites.isDisabled,
-      useLimit: invites.useLimit,
-      useCount: invites.useCount,
-      expiresAt: invites.expiresAt,
-      createdAt: invites.createdAt,
-    })
+    .select(inviteListColumns)
     .from(invites)
     .leftJoin(profiles, eq(invites.profileId, profiles.id))
     .orderBy(desc(invites.createdAt))
@@ -145,17 +151,7 @@ export async function listInvitesPageService(
   const total = totalRow?.total ?? 0
 
   const result = await db
-    .select({
-      id: invites.id,
-      code: invites.code,
-      profileId: invites.profileId,
-      profileName: profiles.name,
-      isDisabled: invites.isDisabled,
-      useLimit: invites.useLimit,
-      useCount: invites.useCount,
-      expiresAt: invites.expiresAt,
-      createdAt: invites.createdAt,
-    })
+    .select(inviteListColumns)
     .from(invites)
     .leftJoin(profiles, eq(invites.profileId, profiles.id))
     .where(searchFilter)
@@ -257,6 +253,7 @@ export async function createInviteService(
       useLimit: parsed.data.useLimit ?? null,
       useCount: 0,
       expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+      access_duration_days: parsed.data.accessDurationDays ?? null,
       createdById: createdById ?? null,
       createdAt: new Date(),
     })
@@ -306,6 +303,9 @@ export async function updateInviteService(
     }),
     ...(parsed.data.expiresAt !== undefined && {
       expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+    }),
+    ...(parsed.data.accessDurationDays !== undefined && {
+      access_duration_days: parsed.data.accessDurationDays,
     }),
   }
 
@@ -373,17 +373,7 @@ export async function bulkManageInvitesService(
   await ensureMigrated()
 
   const rows = await db
-    .select({
-      id: invites.id,
-      code: invites.code,
-      profileId: invites.profileId,
-      profileName: profiles.name,
-      isDisabled: invites.isDisabled,
-      useLimit: invites.useLimit,
-      useCount: invites.useCount,
-      expiresAt: invites.expiresAt,
-      createdAt: invites.createdAt,
-    })
+    .select(inviteListColumns)
     .from(invites)
     .leftJoin(profiles, eq(invites.profileId, profiles.id))
     .where(inArray(invites.id, parsed.data.inviteIds))

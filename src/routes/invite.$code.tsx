@@ -2,7 +2,14 @@
 
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
-import { Loader2, LogOut, ArrowLeft, ArrowRight, Check } from "lucide-react"
+import {
+  Loader2,
+  LogOut,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Hourglass,
+} from "lucide-react"
 import {
   type FormEvent,
   useCallback,
@@ -78,6 +85,7 @@ interface InviteRedeemState {
   validating: boolean
   valid: boolean
   profileName: string
+  accessDurationDays: number | null
   errorMessage: string
   isLoggedIn: boolean
   userEmail: string | null
@@ -93,6 +101,7 @@ type InviteRedeemEvent =
   | { type: "setValidating"; validating: boolean }
   | { type: "setValid"; valid: boolean }
   | { type: "setProfileName"; profileName: string }
+  | { type: "setAccessDurationDays"; accessDurationDays: number | null }
   | { type: "setErrorMessage"; errorMessage: string }
   | { type: "setIsLoggedIn"; isLoggedIn: boolean }
   | { type: "setUserEmail"; userEmail: string | null }
@@ -112,6 +121,7 @@ const initialInviteRedeemState: InviteRedeemState = {
   validating: true,
   valid: false,
   profileName: "",
+  accessDurationDays: null,
   errorMessage: "",
   isLoggedIn: false,
   userEmail: null,
@@ -141,6 +151,10 @@ function inviteRedeemReducer(
       return state.profileName === event.profileName
         ? state
         : { ...state, profileName: event.profileName }
+    case "setAccessDurationDays":
+      return state.accessDurationDays === event.accessDurationDays
+        ? state
+        : { ...state, accessDurationDays: event.accessDurationDays }
     case "setErrorMessage":
       return state.errorMessage === event.errorMessage
         ? state
@@ -193,6 +207,7 @@ function InviteRedeemPage() {
       validating,
       valid,
       profileName,
+      accessDurationDays,
       errorMessage,
       isLoggedIn,
       userEmail,
@@ -354,6 +369,10 @@ function InviteRedeemPage() {
         dispatch({
           type: "setProfileName",
           profileName: data.profileName || "",
+        })
+        dispatch({
+          type: "setAccessDurationDays",
+          accessDurationDays: data.accessDurationDays ?? null,
         })
         if (data.onboardingSteps && data.onboardingSteps.length > 0) {
           dispatch({
@@ -651,6 +670,19 @@ function InviteRedeemPage() {
             {isRegistrationStep && STEPS[currentStep]?.description && (
               <CardDescription>
                 {STEPS[currentStep]?.description}
+              </CardDescription>
+            )}
+            {isRegistrationStep && accessDurationDays !== null && (
+              <CardDescription className="flex items-center gap-1.5">
+                <Hourglass className="size-3.5 shrink-0" />
+                {t("invites.accessDurationNotice", {
+                  duration: t(
+                    accessDurationDays === 1
+                      ? "common.daySingle"
+                      : "common.dayPlural",
+                    { count: accessDurationDays },
+                  ),
+                })}
               </CardDescription>
             )}
             {isOnboardingStep && onboardingPages.length > 0 && (

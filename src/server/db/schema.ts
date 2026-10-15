@@ -153,6 +153,9 @@ export const invites = sqliteTable("invites", {
   useLimit: integer("use_limit"),
   useCount: integer("use_count").notNull().default(0),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+  // Days of access granted to each redeemer, counted from redemption. Null
+  // keeps redeemed users non-expiring.
+  access_duration_days: integer(),
   createdById: text("created_by_id").references(
     (): AnySQLiteColumn => users.userId,
   ),

@@ -39,6 +39,8 @@ export const en: Messages = {
     select: "Select",
     done: "Done",
     selectedCount: "{count} selected",
+    daySingle: "{count} day",
+    dayPlural: "{count} days",
   },
   auth: {
     login: "Log in",
@@ -398,6 +400,16 @@ export const en: Messages = {
       "When the invite will expire in your local time and become unusable.",
     unlimitedWarning:
       "This invite has no use limit or expiry date. Consider adding at least one restriction.",
+    accessDurationOptional: "Access Duration (optional)",
+    accessDurationNoLimit: "No limit",
+    accessDurationCustomPlaceholder: "Custom number of days",
+    accessDurationDescription:
+      "How long accounts created from this invite keep access, counted from sign-up.",
+    accessDurationEditHint:
+      "Changes only apply to future redemptions. Existing users keep their current expiry.",
+    accessDurationLabel: "Access duration",
+    accessDurationBadge: "{duration} access",
+    accessDurationNotice: "Your access lasts {duration} from sign-up.",
     continueToDashboard: "Continue to Dashboard",
     onboardingPageOf: "Page {current} of {total}",
     onboardingBack: "Back",
@@ -811,6 +823,8 @@ export const en: Messages = {
     inviteCodeFormPattern:
       "Invite code must be at least 8 characters and use only letters, numbers, or hyphens",
     expiryFuture: "Expiry must be in the future",
+    accessDurationRange:
+      "Access duration must be a whole number of days between 1 and 3650",
     invitePropertyRequired: "At least one invite property must be provided",
     tokenRequired: "Token is required",
     currentPasswordRequired: "Current password is required",

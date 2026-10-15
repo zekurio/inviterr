@@ -7,6 +7,7 @@ import {
   Clock,
   Copy,
   Edit,
+  Hourglass,
   ListChecks,
   Plus,
   Trash,
@@ -225,6 +226,22 @@ const InviteCard = memo(function InviteCard({
             t("common.never")
           )}
         </span>
+        {invite.accessDurationDays !== null && (
+          <span
+            className="flex items-center gap-1"
+            title={t("invites.accessDurationLabel")}
+          >
+            <Hourglass className="size-3 shrink-0" />
+            {t("invites.accessDurationBadge", {
+              duration: t(
+                invite.accessDurationDays === 1
+                  ? "common.daySingle"
+                  : "common.dayPlural",
+                { count: invite.accessDurationDays },
+              ),
+            })}
+          </span>
+        )}
         {invite.profileName && (
           <span className="flex min-w-0 items-center gap-1">
             <Tv className="size-3 shrink-0" />

@@ -47,19 +47,27 @@ describe("form submission", () => {
     })
   })
 
-  it("rejects an expired invite and submits a trimmed custom code with the corrected expiry", async () => {
+  it("rejects an expired invite or out-of-range access duration and submits the corrected values", async () => {
     const resolve = standardSchemaResolver(standardSchema(inviteFormSchema))
     const input = {
       profileId: "profile",
       code: "  family-2026  ",
       useLimit: "",
       expiresAt: new Date(0),
+      accessDurationDays: "3651",
     }
     const rejected = await resolve(input, undefined, options)
     expect(rejected.errors.expiresAt?.message).toBe("validation.expiryFuture")
-    const expiresAt = new Date(Date.now() + 86_400_000)
-    expect(await resolve({ ...input, expiresAt }, undefined, options)).toEqual({
-      values: { ...input, code: "family-2026", expiresAt },
+    expect(rejected.errors.accessDurationDays?.message).toBe(
+      "validation.accessDurationRange",
+    )
+    const corrected = {
+      ...input,
+      expiresAt: new Date(Date.now() + 86_400_000),
+      accessDurationDays: "30",
+    }
+    expect(await resolve(corrected, undefined, options)).toEqual({
+      values: { ...corrected, code: "family-2026" },
       errors: {},
     })
   })
