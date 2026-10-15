@@ -35,7 +35,9 @@ export function runStartupTasks(): void {
     startUserExpiryMaintenanceScheduler()
     // Local-only cleanup runs first so a Jellyfin outage cannot keep expired
     // applicant data around.
-    await pruneExpiredAccessRequests()
+    await pruneExpiredAccessRequests().catch((err: unknown) => {
+      log.warn({ err }, "Failed to prune expired access requests")
+    })
     await runUserStartupMaintenance()
 
     log.info("Jellyfin user sync complete")

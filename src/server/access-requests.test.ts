@@ -689,4 +689,29 @@ describe("access request expiry", () => {
     expect(await app.listRequests()).toMatchObject([{ id: fresh.id }])
     expect(await app.listInvites()).toHaveLength(0)
   })
+
+  it("prunes expired requests in the expiry sweep while Jellyfin is down", async () => {
+    const app = await setup()
+    const profile = await app.seedProfile("Members", true)
+    await app.seedRequest("expired@example.com", new Date(Date.now() - 1_000))
+    // A leftover redemption makes the sweep look its account up in Jellyfin.
+    const [invite] = await app.database.db
+      .insert(app.schema.invites)
+      .values({ code: "LEFTOVER", profileId: profile.id })
+      .returning()
+    await app.database.db.insert(app.schema.pending_redemptions).values({
+      invite_id: invite.id,
+      username: "leftover",
+      started_at: new Date(0),
+    })
+    vi.mocked(app.jellyfin.getAllUsers).mockRejectedValueOnce(
+      new Error("Jellyfin is down"),
+    )
+
+    const userLifecycle = await import("@/server/user-lifecycle")
+    await expect(userLifecycle.sweepExpiredUsers()).rejects.toThrow(
+      "Jellyfin is down",
+    )
+    expect(await app.listRequests()).toEqual([])
+  })
 })

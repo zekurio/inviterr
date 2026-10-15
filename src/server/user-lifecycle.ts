@@ -692,11 +692,13 @@ async function loadMatchedUsersForExpiryMaintenance(): Promise<
 
 export function sweepExpiredUsers(): Promise<void> {
   return startExpiredUserSweep(async () => {
-    await cleanupAbandonedRedemptions({
-      olderThanMs: ABANDONED_REDEMPTION_GRACE_MS,
-    })
+    // Local-only, so it runs before the Jellyfin-dependent cleanup: an outage
+    // must not keep expired applicant data around.
     await pruneExpiredAccessRequests().catch((err: unknown) => {
       log.warn({ err }, "Failed to prune expired access requests")
+    })
+    await cleanupAbandonedRedemptions({
+      olderThanMs: ABANDONED_REDEMPTION_GRACE_MS,
     })
     const matchedUsers = await loadMatchedUsersForExpiryMaintenance()
 
