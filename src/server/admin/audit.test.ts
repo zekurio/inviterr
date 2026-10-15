@@ -211,7 +211,12 @@ describe("audit log", () => {
         target_id: first.id,
         target_label: "FAMILY-01",
         batch_id: null,
-        details: { profile: "Members", useLimit: null, expiresAt: null },
+        details: {
+          profile: "Members",
+          useLimit: null,
+          expiresAt: null,
+          accessDurationDays: null,
+        },
       }),
     )
 

@@ -651,6 +651,7 @@ export interface Messages {
     targetTypeUser: string
     targetTypeProfile: string
     targetTypeSettings: string
+    targetTypeAccessRequest: string
     anyDate: string
     clearFilters: string
     bulkAction: string
@@ -686,6 +687,8 @@ export interface Messages {
       profileDeleted: string
       settingsUpdated: string
       settingsTestEmailSent: string
+      accessRequestApproved: string
+      accessRequestDenied: string
     }
   }
   onboarding: {

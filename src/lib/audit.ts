@@ -10,6 +10,7 @@ export const AUDIT_TARGET_TYPES = [
   "user",
   "profile",
   "settings",
+  "access_request",
 ] as const
 
 // Every action is prefixed with the target type it applies to, so the target
@@ -34,6 +35,8 @@ export const AUDIT_ACTIONS = [
   "profile.deleted",
   "settings.updated",
   "settings.test_email_sent",
+  "access_request.approved",
+  "access_request.denied",
 ] as const satisfies readonly `${AuditTargetType}.${string}`[]
 
 export type AuditActorType = (typeof AUDIT_ACTOR_TYPES)[number]

@@ -935,7 +935,10 @@ export async function redeemInvite(
       {
         action: "invite.redeemed",
         target: { id: inviteId, label: code },
-        details: { email: normalizedEmail },
+        details: {
+          email: normalizedEmail,
+          accessExpiresAt: accessExpiresAt?.toISOString() ?? null,
+        },
       },
     )
 

@@ -6,6 +6,7 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
+import type { AuditActor } from "@/lib/audit"
 import {
   denyAccessRequestSchema,
   type DenyAccessRequestInput,
@@ -20,6 +21,11 @@ import type {
   PendingAccessRequestsDto,
   UpdateAccessRequestsSettingsInput,
 } from "@/server/api/schemas/admin-schemas"
+import {
+  diffAuditFields,
+  recordAuditChange,
+  recordAuditEvent,
+} from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
 import {
   access_requests,
@@ -71,8 +77,8 @@ export async function countPendingAccessRequests(): Promise<number> {
 }
 
 export async function approveAccessRequestService(
+  actor: AuditActor,
   requestId: string,
-  createdById: string | undefined,
 ): Promise<ActionResult<AccessRequestDecisionDto>> {
   const appUrl = configManager.appUrl
   if (!isEmailConfigured()) {
@@ -120,7 +126,7 @@ export async function approveAccessRequestService(
     useLimit: 1,
     useCount: 0,
     expiresAt,
-    createdById: createdById ?? null,
+    createdById: actor.type === "system" ? null : actor.id,
     createdAt: now,
   }).catch(async (err: unknown) => {
     await restoreAccessRequest(request, null)
@@ -157,10 +163,20 @@ export async function approveAccessRequestService(
     { requestId, inviteId: invite.id, profileId: profile.id },
     "Approved access request",
   )
+  await recordAuditEvent(actor, {
+    action: "access_request.approved",
+    target: { id: requestId, label: request.email },
+    details: {
+      invite: invite.code,
+      profile: profile.name,
+      inviteExpiresAt: expiresAt.toISOString(),
+    },
+  })
   return success({ requestId })
 }
 
 export async function denyAccessRequestService(
+  actor: AuditActor,
   input: DenyAccessRequestInput,
 ): Promise<ActionResult<AccessRequestDecisionDto>> {
   const parsed = safeParse(denyAccessRequestSchema, input)
@@ -204,6 +220,11 @@ export async function denyAccessRequestService(
     { requestId: request.id, notified: parsed.data.notify },
     "Denied access request",
   )
+  await recordAuditEvent(actor, {
+    action: "access_request.denied",
+    target: { id: request.id, label: request.email },
+    details: { notified: parsed.data.notify },
+  })
   return success({ requestId: request.id })
 }
 
@@ -273,6 +294,7 @@ export async function projectAccessRequestsSettingsDto(): Promise<AccessRequests
 }
 
 export async function updateAccessRequestsSettingsService(
+  actor: AuditActor,
   input: UpdateAccessRequestsSettingsInput,
 ): Promise<ActionResult<AccessRequestsSettingsDto>> {
   if (input.enabled && !isAccessRequestDeliveryReady()) {
@@ -284,19 +306,35 @@ export async function updateAccessRequestsSettingsService(
   }
 
   await ensureMigrated()
-  if (input.profileId) {
-    const [profile] = await db
-      .select({ id: profiles.id })
-      .from(profiles)
-      .where(eq(profiles.id, input.profileId))
-    if (!profile) {
-      return error(ErrorCode.NOT_FOUND, "Profile not found")
-    }
+  const previous = configManager.accessRequests
+  const profileNames = new Map(
+    (
+      await db.select({ id: profiles.id, name: profiles.name }).from(profiles)
+    ).map((profile) => [profile.id, profile.name]),
+  )
+  if (input.profileId && !profileNames.has(input.profileId)) {
+    return error(ErrorCode.NOT_FOUND, "Profile not found")
   }
 
   await configManager.setAccessRequests({
     enabled: input.enabled,
     ...(input.profileId ? { profileId: input.profileId } : {}),
+  })
+
+  // Profiles are recorded by name; an unset profile means the default one.
+  await recordAuditChange(actor, {
+    action: "settings.updated",
+    target: { id: "accessRequests" },
+    details: diffAuditFields(
+      {
+        enabled: previous.enabled,
+        profile: previous.profileId && profileNames.get(previous.profileId),
+      },
+      {
+        enabled: input.enabled,
+        profile: input.profileId && profileNames.get(input.profileId),
+      },
+    ),
   })
   return success(await projectAccessRequestsSettingsDto())
 }

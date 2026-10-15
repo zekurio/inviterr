@@ -21,6 +21,8 @@ export const AUDIT_ACTION_LABEL_KEYS = {
   "profile.deleted": "audit.actions.profileDeleted",
   "settings.updated": "audit.actions.settingsUpdated",
   "settings.test_email_sent": "audit.actions.settingsTestEmailSent",
+  "access_request.approved": "audit.actions.accessRequestApproved",
+  "access_request.denied": "audit.actions.accessRequestDenied",
 } as const satisfies Record<AuditAction, MessageKey>
 
 export const AUDIT_ACTOR_TYPE_LABEL_KEYS = {
@@ -34,6 +36,7 @@ export const AUDIT_TARGET_TYPE_LABEL_KEYS = {
   user: "audit.targetTypeUser",
   profile: "audit.targetTypeProfile",
   settings: "audit.targetTypeSettings",
+  access_request: "audit.targetTypeAccessRequest",
 } as const satisfies Record<AuditTargetType, MessageKey>
 
 // Settings events use the settings tab id (or "audit") as their target id.
@@ -43,6 +46,7 @@ const AUDIT_SETTINGS_SECTION_LABEL_KEYS: Partial<Record<string, MessageKey>> = {
   memberOnboarding: "settings.memberOnboardingTab",
   app: "settings.appTab",
   email: "settings.emailTab",
+  accessRequests: "settings.accessRequestsTab",
   audit: "audit.retentionTitle",
 }
 

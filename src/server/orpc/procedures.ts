@@ -590,15 +590,17 @@ const adminProcedures = {
       .handler(async ({ input, context }) =>
         unwrapActionResultOrThrow(
           await approveAccessRequestService(
+            context.auditActor,
             input.requestId,
-            context.session?.userId,
           ),
         ),
       ),
     deny: configuredAdminProcedure
       .input(standardSchema(denyAccessRequestSchema))
-      .handler(async ({ input }) =>
-        unwrapActionResultOrThrow(await denyAccessRequestService(input)),
+      .handler(async ({ input, context }) =>
+        unwrapActionResultOrThrow(
+          await denyAccessRequestService(context.auditActor, input),
+        ),
       ),
   },
   users: {
@@ -713,9 +715,9 @@ const adminProcedures = {
       }),
     updateAccessRequests: configuredAdminProcedure
       .input(standardSchema(updateAccessRequestsSettingsBodySchema))
-      .handler(async ({ input }) =>
+      .handler(async ({ input, context }) =>
         unwrapActionResultOrThrow(
-          await updateAccessRequestsSettingsService(input),
+          await updateAccessRequestsSettingsService(context.auditActor, input),
         ),
       ),
     updateMemberOnboarding: configuredAdminProcedure

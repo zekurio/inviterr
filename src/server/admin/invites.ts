@@ -268,6 +268,7 @@ export async function createInviteService(
       profile: profile.name,
       useLimit: invite.useLimit,
       expiresAt: invite.expiresAt?.toISOString() ?? null,
+      accessDurationDays: invite.access_duration_days,
     },
   })
 
@@ -384,7 +385,15 @@ export async function updateInviteService(
 }
 
 function toInviteAuditFields(
-  invite: Pick<InviteRecord, "code" | "isDisabled" | "useLimit" | "expiresAt">,
+  invite: Pick<
+    InviteRecord,
+    | "code"
+    | "isDisabled"
+    | "useLimit"
+    | "expiresAt"
+    | "access_duration_days"
+    | "email"
+  >,
   profileName: string | null | undefined,
 ) {
   return {
@@ -393,6 +402,8 @@ function toInviteAuditFields(
     isDisabled: invite.isDisabled,
     useLimit: invite.useLimit,
     expiresAt: invite.expiresAt,
+    accessDurationDays: invite.access_duration_days,
+    email: invite.email,
   }
 }
 

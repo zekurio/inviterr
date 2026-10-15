@@ -758,6 +758,7 @@ export const de: Messages = {
     targetTypeUser: "Benutzer",
     targetTypeProfile: "Profil",
     targetTypeSettings: "Einstellungen",
+    targetTypeAccessRequest: "Zugangsanfrage",
     anyDate: "Beliebiger Zeitraum",
     clearFilters: "Filter zurücksetzen",
     bulkAction: "Massenaktion",
@@ -794,6 +795,8 @@ export const de: Messages = {
       profileDeleted: "Profil gelöscht",
       settingsUpdated: "Einstellungen aktualisiert",
       settingsTestEmailSent: "Test-E-Mail gesendet",
+      accessRequestApproved: "Zugangsanfrage angenommen",
+      accessRequestDenied: "Zugangsanfrage abgelehnt",
     },
   },
   onboarding: {
