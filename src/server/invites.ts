@@ -222,25 +222,22 @@ async function compensateInviteRedemption(input: {
   inviteId: string
   jellyfinUserId: string
   seerrUserId: number | null
-  localStateRecorded: boolean
+  usageRecorded: boolean
   preserveJellyfinUser?: boolean
 }): Promise<void> {
-  if (input.localStateRecorded) {
+  if (input.usageRecorded) {
     try {
-      await db.transaction(async (tx) => {
-        await tx
-          .delete(inviteUsages)
-          .where(
-            and(
-              eq(inviteUsages.inviteId, input.inviteId),
-              eq(inviteUsages.userId, input.jellyfinUserId),
-            ),
-          )
-        await tx.delete(users).where(eq(users.userId, input.jellyfinUserId))
-      })
+      await db
+        .delete(inviteUsages)
+        .where(
+          and(
+            eq(inviteUsages.inviteId, input.inviteId),
+            eq(inviteUsages.userId, input.jellyfinUserId),
+          ),
+        )
       logger.info(
         { inviteId: input.inviteId, userId: input.jellyfinUserId },
-        "Removed local redemption state during compensation",
+        "Removed invite usage during compensation",
       )
     } catch (err) {
       logger.error(
@@ -249,7 +246,7 @@ async function compensateInviteRedemption(input: {
           inviteId: input.inviteId,
           userId: input.jellyfinUserId,
         },
-        "Failed to remove local redemption state; preserving external users and invite usage for reconciliation",
+        "Failed to remove invite usage; preserving external users and invite usage for reconciliation",
       )
       return
     }
@@ -259,7 +256,7 @@ async function compensateInviteRedemption(input: {
   if (input.preserveJellyfinUser) {
     logger.warn(
       { userId: input.jellyfinUserId },
-      "Preserving Jellyfin user because Seerr outcome is unknown; startup reconciliation will restore its local record",
+      "Preserving Jellyfin user and its local record because Seerr outcome is unknown",
     )
     return
   }
@@ -281,7 +278,7 @@ async function compensateInviteRedemption(input: {
           userId: input.jellyfinUserId,
           seerrUserId: input.seerrUserId,
         },
-        "Failed to delete Seerr user during invite compensation; preserving Jellyfin user for startup reconciliation",
+        "Failed to delete Seerr user during invite compensation; preserving Jellyfin user and its local record",
       )
       return
     }
@@ -296,7 +293,24 @@ async function compensateInviteRedemption(input: {
   } catch (err) {
     logger.error(
       { err, userId: input.jellyfinUserId },
-      "Failed to delete Jellyfin user during invite compensation; startup reconciliation will restore its local record",
+      "Failed to delete Jellyfin user during invite compensation; preserving its local record",
+    )
+    return
+  }
+
+  // The local record carries the invite's access expiry, so it may only go
+  // once the Jellyfin account is gone. Otherwise login and startup recovery
+  // would recreate the surviving account as a non-expiring user.
+  try {
+    await db.delete(users).where(eq(users.userId, input.jellyfinUserId))
+    logger.info(
+      { userId: input.jellyfinUserId },
+      "Removed local user record during invite compensation",
+    )
+  } catch (err) {
+    logger.error(
+      { err, userId: input.jellyfinUserId },
+      "Failed to remove local user record after deleting its Jellyfin user",
     )
   }
 }
@@ -458,6 +472,62 @@ export async function redeemInvite(
       return error(ErrorCode.JELLYFIN_ERROR, "Failed to create user account")
     }
 
+    // Record the account with its access expiry as soon as Jellyfin creates
+    // it. If redemption then fails and the account survives (unknown Seerr
+    // outcome, failed cleanup, or a crash), login and startup recovery keep
+    // this record instead of recreating the user as non-expiring. Access is
+    // counted from here, matching the createdAt the renewal lifetime ceiling
+    // is measured from.
+    const redeemedAt = new Date()
+    const accessExpiresAt =
+      invite.access_duration_days === null
+        ? null
+        : new Date(
+            redeemedAt.getTime() + invite.access_duration_days * MS_PER_DAY,
+          )
+    try {
+      await db
+        .insert(users)
+        .values({
+          userId: jellyfinUser.id,
+          email: null,
+          emailVerified: false,
+          locale: null,
+          profileId: null,
+          inviteId,
+          seerrSyncedAt: null,
+          expiresAt: accessExpiresAt,
+          expiryWarningSentAt: null,
+          expiryWarningSentFor: null,
+          createdAt: redeemedAt,
+        })
+        // A login with the new credentials can win the race and record the
+        // account through ensureUserRecord first, without an expiry.
+        .onConflictDoUpdate({
+          target: users.userId,
+          set: {
+            inviteId,
+            expiresAt: accessExpiresAt,
+            createdAt: redeemedAt,
+          },
+        })
+    } catch (err) {
+      logger.error(
+        { err, inviteId, userId: jellyfinUser.id },
+        "Failed to record created Jellyfin user, performing compensation",
+      )
+      await compensateInviteRedemption({
+        inviteId,
+        jellyfinUserId: jellyfinUser.id,
+        seerrUserId: null,
+        usageRecorded: false,
+      })
+      return error(
+        ErrorCode.INTERNAL_ERROR,
+        "Failed to complete registration. Please try again.",
+      )
+    }
+
     let seerrConfigured: boolean
     try {
       seerrConfigured = configManager.seerr !== undefined
@@ -470,7 +540,7 @@ export async function redeemInvite(
         inviteId,
         jellyfinUserId: jellyfinUser.id,
         seerrUserId: null,
-        localStateRecorded: false,
+        usageRecorded: false,
       })
       return error(
         ErrorCode.INTERNAL_ERROR,
@@ -501,7 +571,7 @@ export async function redeemInvite(
           inviteId,
           jellyfinUserId: jellyfinUser.id,
           seerrUserId: rollbackSeerrUserId,
-          localStateRecorded: false,
+          usageRecorded: false,
           preserveJellyfinUser: rollbackSeerrUserId === null,
         })
         return error(
@@ -536,7 +606,7 @@ export async function redeemInvite(
           inviteId,
           jellyfinUserId: jellyfinUser.id,
           seerrUserId: rollbackSeerrUserId,
-          localStateRecorded: false,
+          usageRecorded: false,
         })
         return error(
           profileErrorCode,
@@ -566,7 +636,7 @@ export async function redeemInvite(
         inviteId,
         jellyfinUserId: jellyfinUser.id,
         seerrUserId: rollbackSeerrUserId,
-        localStateRecorded: false,
+        usageRecorded: false,
       })
       return error(
         ErrorCode.JELLYFIN_ERROR,
@@ -604,30 +674,16 @@ export async function redeemInvite(
       }
     }
 
-    // Access is counted from the moment the account is recorded, matching the
-    // createdAt the renewal lifetime ceiling is measured from.
-    const redeemedAt = new Date()
     try {
       await db.transaction(async (tx) => {
-        await tx.insert(users).values({
-          userId: jellyfinUser.id,
-          email: normalizedEmail,
-          emailVerified: false,
-          locale: null,
-          profileId: resolvedProfile.data.profileId,
-          inviteId,
-          seerrSyncedAt: seerrConfigured ? redeemedAt : null,
-          expiresAt:
-            invite.access_duration_days === null
-              ? null
-              : new Date(
-                  redeemedAt.getTime() +
-                    invite.access_duration_days * MS_PER_DAY,
-                ),
-          expiryWarningSentAt: null,
-          expiryWarningSentFor: null,
-          createdAt: redeemedAt,
-        })
+        await tx
+          .update(users)
+          .set({
+            email: normalizedEmail,
+            profileId: resolvedProfile.data.profileId,
+            seerrSyncedAt: seerrConfigured ? new Date() : null,
+          })
+          .where(eq(users.userId, jellyfinUser.id))
 
         await tx.insert(inviteUsages).values({
           id: crypto.randomUUID(),
@@ -647,7 +703,7 @@ export async function redeemInvite(
         "Failed to record user in database, checking transaction outcome",
       )
 
-      let localStateRecorded: boolean
+      let usageRecorded: boolean
       try {
         const [recordedUsage] = await db
           .select({ id: inviteUsages.id })
@@ -659,7 +715,7 @@ export async function redeemInvite(
             ),
           )
           .limit(1)
-        localStateRecorded = recordedUsage !== undefined
+        usageRecorded = recordedUsage !== undefined
       } catch (reconcileErr) {
         logger.error(
           {
@@ -679,7 +735,7 @@ export async function redeemInvite(
         inviteId,
         jellyfinUserId: jellyfinUser.id,
         seerrUserId: rollbackSeerrUserId,
-        localStateRecorded,
+        usageRecorded,
       })
       return error(
         ErrorCode.INTERNAL_ERROR,
@@ -730,7 +786,7 @@ export async function redeemInvite(
         inviteId,
         jellyfinUserId: jellyfinUser.id,
         seerrUserId: rollbackSeerrUserId,
-        localStateRecorded: true,
+        usageRecorded: true,
       })
       return error(
         ErrorCode.INTERNAL_ERROR,

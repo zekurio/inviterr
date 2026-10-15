@@ -354,6 +354,99 @@ describe("redeemInvite", () => {
     expect(localUser).toMatchObject({ expiresAt: null })
   })
 
+  it.each<{
+    failure: string
+    seerr?: { hostname: string }
+    arrange: (setup: Awaited<ReturnType<typeof loadInviteModules>>) => void
+  }>([
+    {
+      failure: "the Seerr outcome is uncertain",
+      seerr: { hostname: "http://seerr.test" },
+      arrange: (setup) => {
+        vi.mocked(setup.seerr.resolveSeerrUser).mockRejectedValueOnce(
+          new Error("Seerr timed out"),
+        )
+      },
+    },
+    {
+      failure: "sign-in and Jellyfin cleanup fail",
+      arrange: (setup) => {
+        vi.mocked(setup.jellyfin.authenticateUser).mockRejectedValueOnce(
+          new Error("Jellyfin authentication failed"),
+        )
+        vi.mocked(setup.jellyfin.deleteUser).mockRejectedValueOnce(
+          new Error("Jellyfin cleanup failed"),
+        )
+      },
+    },
+    {
+      failure: "session and Jellyfin cleanup fail",
+      arrange: (setup) => {
+        vi.mocked(
+          setup.auth.establishAuthenticatedSession,
+        ).mockRejectedValueOnce(new Error("Session storage unavailable"))
+        vi.mocked(setup.jellyfin.deleteUser).mockRejectedValueOnce(
+          new Error("Jellyfin cleanup failed"),
+        )
+      },
+    },
+  ])(
+    "keeps the access duration on an account that survives when $failure",
+    async ({ seerr, arrange }) => {
+      configMocks.seerr = seerr
+      const setup = await loadInviteModules()
+      const profile = await seedProfile(setup.database, setup.schema)
+      await seedInvite(setup, {
+        code: "LIMIT123",
+        profileId: profile.id,
+        access_duration_days: 30,
+      })
+      arrange(setup)
+
+      const result = await setup.inviteService.redeemInvite(redeemInput)
+      // Login and startup seeding recover surviving Jellyfin accounts here.
+      const recoveredUser =
+        await setup.userLifecycle.ensureUserRecord("jellyfin-user-1")
+
+      expect(result.success).toBe(false)
+      expect(recoveredUser.expiresAt?.getTime()).toBe(
+        recoveredUser.createdAt.getTime() + 30 * 24 * 60 * 60 * 1000,
+      )
+    },
+  )
+
+  it("applies the access duration when a login records the new account first", async () => {
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    await seedInvite(setup, {
+      code: "LIMIT123",
+      profileId: profile.id,
+      access_duration_days: 30,
+    })
+    vi.mocked(setup.jellyfin.createUser).mockImplementationOnce(async () => {
+      await setup.userLifecycle.ensureUserRecord("jellyfin-user-1")
+      return {
+        id: "jellyfin-user-1",
+        isAdmin: false,
+        name: "test-user",
+        avatarUrl: "/api/avatar/jellyfin-user-1",
+      }
+    })
+
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+    const localUser = await setup.database.db.query.users.findFirst({
+      where: eq(setup.schema.users.userId, "jellyfin-user-1"),
+    })
+
+    expect(result).toMatchObject({ success: true })
+    if (!localUser) {
+      throw new Error("Expected the redeemed user to be recorded")
+    }
+    expect(localUser.expiresAt?.getTime()).toBe(
+      localUser.createdAt.getTime() + 30 * 24 * 60 * 60 * 1000,
+    )
+  })
+
   it("does not increment an invite that is already at its use limit", async () => {
     const setup = await loadInviteModules()
     const profile = await seedProfile(setup.database, setup.schema)
