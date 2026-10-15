@@ -358,7 +358,7 @@ export async function updateProfileService(
       return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
     }
 
-    const { previous, updated } = await db.transaction(async (tx) => {
+    const change = await db.transaction(async (tx) => {
       const [existing] = await tx
         .select()
         .from(profiles)
@@ -412,23 +412,27 @@ export async function updateProfileService(
     // values (folder lists, quotas, renewal) are recorded as changed only.
     await recordAuditChange(actor, {
       action: "profile.updated",
-      target: { id: updated.id, label: updated.name },
+      target: { id: change.updated.id, label: change.updated.name },
       details: diffAuditFields(
         {
-          name: previous.name,
-          isDefault: previous.isDefault,
-          ...previous.policy,
+          name: change.previous.name,
+          isDefault: change.previous.isDefault,
+          ...change.previous.policy,
         },
-        { name: updated.name, isDefault: updated.isDefault, ...updated.policy },
+        {
+          name: change.updated.name,
+          isDefault: change.updated.isDefault,
+          ...change.updated.policy,
+        },
       ),
     })
 
     const shouldSyncUsers = parsed.data.policy !== undefined
     const syncFailedCount = shouldSyncUsers
-      ? await syncUsersForProfile(updated)
+      ? await syncUsersForProfile(change.updated)
       : 0
 
-    const profileItem = toProfileListItem(updated)
+    const profileItem = toProfileListItem(change.updated)
     return success(
       syncFailedCount > 0 ? { ...profileItem, syncFailedCount } : profileItem,
     )

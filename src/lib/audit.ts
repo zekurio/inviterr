@@ -67,6 +67,5 @@ export function auditActorFromSession(
 }
 
 export function getAuditActionTargetType(action: AuditAction): AuditTargetType {
-  const [targetType] = action.split(".") as [AuditTargetType]
-  return targetType
+  return action.split(".")[0] as AuditTargetType
 }

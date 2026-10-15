@@ -15,10 +15,12 @@ import {
 } from "@/components/ui/dialog"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { getApiErrorMessage } from "@/lib/api/error-message"
 import { AUDIT_RETENTION_MAX_DAYS } from "@/lib/audit"
-import { reportClientError } from "@/lib/client-error"
 import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
+import { safeParse } from "@/lib/validation"
+import { updateAuditRetentionSchema } from "@/server/api/schemas/admin-schemas"
 
 type AuditRetentionDialogProps = {
   retentionDays: number
@@ -48,37 +50,29 @@ export function AuditRetentionDialog({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const nextRetentionDays = Number(value)
-    if (
-      value.trim() === "" ||
-      !Number.isInteger(nextRetentionDays) ||
-      nextRetentionDays < 0 ||
-      nextRetentionDays > AUDIT_RETENTION_MAX_DAYS
-    ) {
+    // Number("") is 0, which would silently mean "keep forever".
+    const parsed = safeParse(updateAuditRetentionSchema, {
+      retentionDays: value.trim() === "" ? Number.NaN : Number(value),
+    })
+    if (!parsed.success) {
       setIsInvalid(true)
       return
     }
 
     setIsSaving(true)
-    try {
-      const result = await runApiEffect(
-        getBrowserORPCClient().admin.audit.updateRetention({
-          retentionDays: nextRetentionDays,
-        }),
+    const result = await runApiEffect(
+      getBrowserORPCClient().admin.audit.updateRetention(parsed.data),
+    )
+    setIsSaving(false)
+    if (!result.data) {
+      toast.error(
+        getApiErrorMessage(result.error, t, "audit.retentionSaveFailed"),
       )
-      if (result.error !== null || !result.data) {
-        toast.error(t("audit.retentionSaveFailed"))
-        return
-      }
-      toast.success(t("audit.retentionSaved"))
-      setOpen(false)
-      onSaved(result.data.retentionDays)
-    } catch (err) {
-      reportClientError(err)
-      toast.error(t("audit.retentionSaveFailed"))
-    } finally {
-      setIsSaving(false)
+      return
     }
+    toast.success(t("audit.retentionSaved"))
+    setOpen(false)
+    onSaved(result.data.retentionDays)
   }
 
   return (

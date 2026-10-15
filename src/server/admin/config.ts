@@ -71,7 +71,11 @@ export async function updateJellyfinConfigService(
     await recordAuditChange(actor, {
       action: "settings.updated",
       target: { id: "jellyfin" },
-      details: diffAuditFields(previous, configManager.jellyfin, ["apiKey"]),
+      details: diffAuditFields(
+        toJellyfinAuditFields(previous),
+        toJellyfinAuditFields(configManager.jellyfin),
+        ["apiKey"],
+      ),
     })
 
     return success(undefined)
@@ -164,11 +168,32 @@ async function recordSeerrConfigChange(
     action: "settings.updated",
     target: { id: "seerr" },
     details: diffAuditFields(
-      { configured: previous !== undefined, ...previous },
-      { configured: next !== undefined, ...next },
+      toSeerrAuditFields(previous),
+      toSeerrAuditFields(next),
       ["apiKey"],
     ),
   })
+}
+
+// Audited fields are listed explicitly so a secret added to the config later
+// is never stored until it is listed here and marked secret by the caller.
+function toJellyfinAuditFields(jellyfin: JellyfinConfig) {
+  return {
+    internalUrl: jellyfin.internalUrl,
+    externalUrl: jellyfin.externalUrl,
+    apiKey: jellyfin.apiKey,
+    configPath: jellyfin.configPath,
+    displayName: jellyfin.displayName,
+  }
+}
+
+function toSeerrAuditFields(seerr: SeerrConfig | undefined) {
+  return {
+    configured: seerr !== undefined,
+    internalUrl: seerr?.internalUrl,
+    externalUrl: seerr?.externalUrl,
+    apiKey: seerr?.apiKey,
+  }
 }
 
 export async function testSeerrConnectionService(): Promise<

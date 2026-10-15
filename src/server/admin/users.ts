@@ -971,7 +971,7 @@ async function updatePreparedManagedUser(
   const isDisabled = shouldEnforceExpiredAccess
     ? true
     : effectiveState.isDisabled
-  const result = {
+  return success({
     userId,
     profileId: jellyfinUser?.isAdmin ? null : effectiveState.assignedProfileId,
     profileName: effectiveState.effectiveProfileName,
@@ -979,9 +979,7 @@ async function updatePreparedManagedUser(
     emailVerified,
     isDisabled,
     expiresAt: nextExpiresAt?.toISOString() ?? null,
-  }
-
-  return success(result)
+  })
 }
 
 // Shared by the single and bulk update paths so both record the same fields.
@@ -1466,7 +1464,7 @@ export async function updateManagedUserService(
   const isDisabled = shouldEnforceExpiredAccess
     ? true
     : effectiveState.isDisabled
-  const result = {
+  return success({
     userId: parsedUserId.data,
     profileId: jellyfinUser?.isAdmin ? null : effectiveState.assignedProfileId,
     profileName: effectiveState.effectiveProfileName,
@@ -1474,9 +1472,7 @@ export async function updateManagedUserService(
     emailVerified,
     isDisabled,
     expiresAt: nextExpiresAt?.toISOString() ?? null,
-  }
-
-  return success(result)
+  })
 }
 
 export async function syncUserToSeerrService(
