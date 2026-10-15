@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm"
+import { and, eq, gt, sql } from "drizzle-orm"
 import type { StaticDecode } from "typebox"
 
 import {
@@ -36,6 +36,7 @@ import {
   attachPendingRedemptionUser,
   beginPendingRedemption,
   finishPendingRedemption,
+  redeemableInviteCondition,
 } from "@/server/invite-redemptions"
 import {
   authenticateUser,
@@ -446,14 +447,7 @@ export async function redeemInvite(
     const reserveResult = await db
       .update(invites)
       .set({ useCount: sql`${invites.useCount} + 1` })
-      .where(
-        and(
-          eq(invites.id, inviteId),
-          eq(invites.isDisabled, false),
-          or(isNull(invites.expiresAt), gt(invites.expiresAt, now)),
-          or(isNull(invites.useLimit), lt(invites.useCount, invite.useLimit!)),
-        ),
-      )
+      .where(and(eq(invites.id, inviteId), redeemableInviteCondition(now)))
       .returning({ id: invites.id })
 
     if (reserveResult.length === 0) {

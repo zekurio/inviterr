@@ -1,4 +1,4 @@
-import { and, count, eq, gt, inArray, isNull, lt, lte, or } from "drizzle-orm"
+import { and, count, eq, inArray, lte } from "drizzle-orm"
 import type { StaticDecode } from "typebox"
 
 import {
@@ -15,6 +15,7 @@ import { db, ensureMigrated, getUserByEmail } from "@/server/db"
 import { access_requests, invites, users } from "@/server/db/schema"
 import { isEmailConfigured } from "@/server/email"
 import { sendConfiguredEmail } from "@/server/email/messages"
+import { redeemableInviteCondition } from "@/server/invite-redemptions"
 import { getAllUsers } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
 
@@ -111,14 +112,7 @@ async function hasAccessOrOutstandingInvite(
   const [invite] = await db
     .select({ id: invites.id })
     .from(invites)
-    .where(
-      and(
-        eq(invites.email, email),
-        eq(invites.isDisabled, false),
-        or(isNull(invites.expiresAt), gt(invites.expiresAt, now)),
-        or(isNull(invites.useLimit), lt(invites.useCount, invites.useLimit)),
-      ),
-    )
+    .where(and(eq(invites.email, email), redeemableInviteCondition(now)))
     .limit(1)
 
   return invite !== undefined

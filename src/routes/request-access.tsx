@@ -47,7 +47,7 @@ export const Route = createFileRoute("/request-access")({
 })
 
 function RequestAccessPage() {
-  const { bootstrap } = Route.useLoaderData()
+  const bootstrap = Route.useLoaderData().bootstrap
   const t = useTranslations()
   const store = useScopedStore(() =>
     createAppStore<RequestAccessPageStoreState>((set) => ({

@@ -13,6 +13,7 @@ import {
 import { configManager } from "@/lib/server/config.server"
 import { safeParse } from "@/lib/validation"
 import { isAccessRequestDeliveryReady } from "@/server/access-requests"
+import { insertInviteWithGeneratedCode } from "@/server/admin/invites"
 import type {
   AccessRequestDecisionDto,
   AccessRequestsSettingsDto,
@@ -29,13 +30,11 @@ import {
 import { isEmailConfigured } from "@/server/email"
 import { sendConfiguredEmail } from "@/server/email/messages"
 import { formatExpiryEmailDate } from "@/server/email/notifications"
-import { generateInviteCode } from "@/server/invites"
 import { createChildLogger } from "@/server/logger"
 
 const log = createChildLogger({ module: "admin-access-requests" })
 
 const ACCESS_REQUEST_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
-const INVITE_CODE_ATTEMPTS = 10
 
 export async function listAccessRequestsService(): Promise<
   ActionResult<PendingAccessRequestsDto>
@@ -100,8 +99,7 @@ export async function approveAccessRequestService(
   const now = new Date()
   const expiresAt = new Date(now.getTime() + ACCESS_REQUEST_INVITE_TTL_MS)
   // A single DELETE ... RETURNING claims the row atomically, so exactly one of
-  // several concurrent approvals proceeds. Concurrent interactive write
-  // transactions would instead fail the losers with SQLITE_BUSY.
+  // several concurrent approvals proceeds and the rest see NOT_FOUND.
   const [request] = await db
     .delete(access_requests)
     .where(
@@ -115,9 +113,12 @@ export async function approveAccessRequestService(
     return error(ErrorCode.NOT_FOUND, "Access request not found")
   }
 
-  const invite = await insertApprovalInvite({
+  const invite = await insertInviteWithGeneratedCode({
     profileId: profile.id,
     email: request.email,
+    isDisabled: false,
+    useLimit: 1,
+    useCount: 0,
     expiresAt,
     createdById: createdById ?? null,
     createdAt: now,
@@ -125,6 +126,13 @@ export async function approveAccessRequestService(
     await restoreAccessRequest(request, null)
     throw err
   })
+  if (!invite) {
+    await restoreAccessRequest(request, null)
+    return error(
+      ErrorCode.OPERATION_FAILED,
+      "Failed to generate unique invite code. Please try again.",
+    )
+  }
 
   const locale = configManager.defaultLocale
   try {
@@ -150,34 +158,6 @@ export async function approveAccessRequestService(
     "Approved access request",
   )
   return success({ requestId })
-}
-
-async function insertApprovalInvite(values: {
-  profileId: string
-  email: string
-  expiresAt: Date
-  createdById: string | null
-  createdAt: Date
-}): Promise<{ id: string; code: string }> {
-  for (let attempt = 0; attempt < INVITE_CODE_ATTEMPTS; attempt++) {
-    const [invite] = await db
-      .insert(invites)
-      .values({
-        ...values,
-        id: crypto.randomUUID(),
-        code: generateInviteCode(),
-        isDisabled: false,
-        useLimit: 1,
-        useCount: 0,
-      })
-      .onConflictDoNothing({ target: invites.code })
-      .returning({ id: invites.id, code: invites.code })
-    if (invite) {
-      return invite
-    }
-  }
-
-  throw new Error("Failed to generate a unique invite code")
 }
 
 export async function denyAccessRequestService(

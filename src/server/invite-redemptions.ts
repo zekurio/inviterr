@@ -1,11 +1,20 @@
-import { eq, lt } from "drizzle-orm"
+import { and, eq, gt, isNull, lt, or } from "drizzle-orm"
 
 import { db, ensureMigrated } from "@/server/db"
-import { pending_redemptions, users } from "@/server/db/schema"
+import { invites, pending_redemptions, users } from "@/server/db/schema"
 import { deleteUser, getAllUsers } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
 
 const log = createChildLogger({ module: "invite-redemptions" })
+
+// Invites that still accept a redemption at `now`.
+export function redeemableInviteCondition(now: Date) {
+  return and(
+    eq(invites.isDisabled, false),
+    or(isNull(invites.expiresAt), gt(invites.expiresAt, now)),
+    or(isNull(invites.useLimit), lt(invites.useCount, invites.useLimit)),
+  )
+}
 
 // Long enough that no in-flight redemption is still between its Jellyfin
 // create and its local user record when the periodic sweep looks at it.
