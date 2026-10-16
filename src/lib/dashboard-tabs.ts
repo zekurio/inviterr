@@ -1,7 +1,6 @@
 export const DASHBOARD_TABS = [
   "invites",
   "profiles",
-  "history",
   "users",
   "audit",
   "settings",

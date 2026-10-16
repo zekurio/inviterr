@@ -2,7 +2,6 @@
 
 import { useNavigate } from "@tanstack/react-router"
 import {
-  Clock3,
   ScrollText,
   Settings2,
   Ticket,
@@ -15,7 +14,6 @@ import { toast } from "sonner"
 
 import { AccessRequestsCard } from "@/components/access-requests/access-requests-card"
 import { AuditLogTable } from "@/components/audit/audit-log-table"
-import { InviteHistoryTable } from "@/components/invites/invite-history-table"
 import { InvitesGrid } from "@/components/invites/invites-grid"
 import { ProfilesGrid } from "@/components/profiles/profiles-grid"
 import { DashboardSettingsTabs } from "@/components/settings/dashboard-settings-tabs"
@@ -30,7 +28,6 @@ import type {
   AuditEventFiltersDto,
   MediaLibraryDto,
   PagedAuditEventsDto,
-  PagedInviteHistoryDto,
   PendingAccessRequestsDto,
   PagedInvitesDto,
   ProfileDto,
@@ -53,7 +50,6 @@ const DASHBOARD_TAB_NAV_ITEMS: Array<{
   labelKey:
     | "nav.invites"
     | "nav.profiles"
-    | "nav.history"
     | "nav.users"
     | "nav.audit"
     | "nav.settings"
@@ -61,7 +57,6 @@ const DASHBOARD_TAB_NAV_ITEMS: Array<{
 }> = [
   { value: "invites", labelKey: "nav.invites", Icon: Ticket },
   { value: "profiles", labelKey: "nav.profiles", Icon: Tv },
-  { value: "history", labelKey: "nav.history", Icon: Clock3 },
   { value: "users", labelKey: "nav.users", Icon: User },
   { value: "audit", labelKey: "nav.audit", Icon: ScrollText },
   { value: "settings", labelKey: "nav.settings", Icon: Settings2 },
@@ -101,11 +96,6 @@ interface DashboardTabsViewProps {
     data: PendingAccessRequestsDto
     error: string | null
   }
-  historyData: {
-    page: PagedInviteHistoryDto
-    query: string
-    error: string | null
-  }
   auditData: {
     page: PagedAuditEventsDto
     filters: AuditEventFiltersDto
@@ -122,7 +112,6 @@ function DashboardTabsViewInner({
   profilesData,
   usersData,
   accessRequestsData,
-  historyData,
   auditData,
 }: DashboardTabsViewProps) {
   const navigate = useNavigate()
@@ -227,19 +216,6 @@ function DashboardTabsViewInner({
           initialLibraries={profilesData.libraries}
           isSeerrConfigured={profilesData.isSeerrConfigured}
           initialError={profilesData.error}
-        />
-      </TabsContent>
-
-      <TabsContent
-        value="history"
-        id={getTabContentId(DASHBOARD_TABS_BASE_ID, "history")}
-        aria-labelledby={getTabTriggerId(DASHBOARD_TABS_BASE_ID, "history")}
-        className="md:mt-4"
-      >
-        <InviteHistoryTable
-          initialPage={historyData.page}
-          initialQuery={historyData.query}
-          initialError={historyData.error}
         />
       </TabsContent>
 

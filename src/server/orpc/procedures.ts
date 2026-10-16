@@ -39,7 +39,6 @@ import {
   bulkManageInvitesService,
   createInviteService,
   deleteInviteService,
-  getInviteHistoryPageService,
   updateInviteService,
 } from "@/server/admin/invites"
 import { getOverviewService } from "@/server/admin/overview"
@@ -61,7 +60,6 @@ import {
   bulkInvitesSchema,
   bulkManagedUsersSchema,
   bulkProfilesSchema,
-  inviteHistoryPageInputSchema,
   invitesPageInputSchema,
   updateAccessRequestsSettingsBodySchema,
   updateAuditRetentionSchema,
@@ -467,11 +465,6 @@ const adminProcedures = {
           profileOptions: unwrapActionResultOrThrow(page.profileOptions),
         }
       }),
-    history: configuredAdminProcedure
-      .input(standardSchema(inviteHistoryPageInputSchema))
-      .handler(async ({ input }) =>
-        unwrapActionResultOrThrow(await getInviteHistoryPageService(input)),
-      ),
     create: configuredAdminProcedure
       .input(standardSchema(createInviteSchema))
       .handler(async ({ input, context }) =>

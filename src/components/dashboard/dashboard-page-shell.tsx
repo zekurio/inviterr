@@ -14,7 +14,6 @@ export function DashboardPageShell({
   profilesData,
   usersData,
   accessRequestsData,
-  historyData,
   auditData,
 }: DashboardPageData) {
   return (
@@ -39,7 +38,6 @@ export function DashboardPageShell({
             profilesData={profilesData}
             usersData={usersData}
             accessRequestsData={accessRequestsData}
-            historyData={historyData}
             auditData={auditData}
           />
         </div>

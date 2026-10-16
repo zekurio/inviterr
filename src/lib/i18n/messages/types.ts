@@ -309,12 +309,10 @@ export interface Messages {
     emailLockedHint: string
     accountCreated: string
     searchInvitesPlaceholder: string
-    searchHistoryPlaceholder: string
     sortCreated: string
     code: string
     profile: string
     uses: string
-    used: string
     expires: string
     status: string
     statusFilterAll: string
@@ -338,7 +336,6 @@ export interface Messages {
     inviteUpdated: string
     inviteSaveFailed: string
     inviteLoadFailed: string
-    historyFetchFailed: string
     copyInviteLink: string
     disableInvite: string
     disableInviteDescription: string
@@ -352,11 +349,8 @@ export interface Messages {
     sectionAttention: string
     sectionInactive: string
     noInvitesFound: string
-    noHistoryFound: string
     inviteCountSingle: string
     inviteCountPlural: string
-    usageCountSingle: string
-    usageCountPlural: string
     selectProfileError: string
     profileLabel: string
     selectProfilePlaceholder: string
@@ -634,6 +628,7 @@ export interface Messages {
     empty: string
     eventCountSingle: string
     eventCountPlural: string
+    loadMore: string
     actorFilterPlaceholder: string
     targetFilterPlaceholder: string
     time: string
@@ -904,7 +899,6 @@ export interface Messages {
     users: string
     invites: string
     profiles: string
-    history: string
     audit: string
     settings: string
     profile: string

@@ -1,24 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { DashboardPageShell } from "@/components/dashboard/dashboard-page-shell"
-import type { InviteHistoryPageInputDto } from "@/lib/api/contracts/admin"
-import { getDashboardPageDataFn } from "@/lib/dashboard-page-fns"
-import { parse } from "@/lib/validation"
-import { inviteHistoryPageInputSchema } from "@/server/api/schemas/admin-schemas"
-
+// Invite usage history now lives in the audit log; keep old links working.
 export const Route = createFileRoute("/dashboard/history")({
-  validateSearch: (search): InviteHistoryPageInputDto =>
-    parse(inviteHistoryPageInputSchema, search),
-  loader: ({ location }) =>
-    getDashboardPageDataFn({
-      data: {
-        activeTab: "history",
-        history: location.search,
-      },
-    }),
-  component: DashboardHistoryPage,
+  beforeLoad: () => {
+    throw redirect({
+      to: "/dashboard/audit",
+      search: { action: "invite.redeemed" },
+      replace: true,
+    })
+  },
 })
-
-function DashboardHistoryPage() {
-  return <DashboardPageShell {...Route.useLoaderData()} />
-}

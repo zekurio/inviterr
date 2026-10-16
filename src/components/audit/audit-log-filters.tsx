@@ -2,6 +2,7 @@
 
 import { endOfDay, startOfDay } from "date-fns"
 import { CalendarIcon, Layers, X } from "lucide-react"
+import type { ReactNode } from "react"
 import type { DateRange } from "react-day-picker"
 
 import {
@@ -47,11 +48,16 @@ const ACTION_VALUES: ReadonlySet<string> = new Set(AUDIT_ACTIONS)
 type AuditLogFiltersProps = {
   filters: AuditEventFiltersDto
   onChange: (filters: AuditEventFiltersDto) => void
+  actions?: ReactNode
 }
 
-export function AuditLogFilters({ filters, onChange }: AuditLogFiltersProps) {
+export function AuditLogFilters({
+  filters,
+  onChange,
+  actions,
+}: AuditLogFiltersProps) {
   const t = useTranslations()
-  const actions = filters.targetType
+  const actionOptions = filters.targetType
     ? AUDIT_ACTIONS.filter(
         (action) => getAuditActionTargetType(action) === filters.targetType,
       )
@@ -60,124 +66,121 @@ export function AuditLogFilters({ filters, onChange }: AuditLogFiltersProps) {
     (value) => value !== undefined && value !== "",
   )
 
+  // One wrapping row from sm up. Centering keeps the h-8 searches level with
+  // the search on the other dashboard tabs, whose toolbars are h-9 tall.
   return (
-    <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
-      <div className="grid gap-2 sm:grid-cols-2 lg:flex">
-        <DashboardTabSearch
-          placeholder={t("audit.actorFilterPlaceholder")}
-          value={filters.actor ?? ""}
-          onChange={(actor) => onChange({ ...filters, actor })}
-        />
-        <DashboardTabSearch
-          placeholder={t("audit.targetFilterPlaceholder")}
-          value={filters.target ?? ""}
-          onChange={(target) => onChange({ ...filters, target })}
-        />
-      </div>
+    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+      <DashboardTabSearch
+        placeholder={t("audit.actorFilterPlaceholder")}
+        value={filters.actor ?? ""}
+        onChange={(actor) => onChange({ ...filters, actor })}
+        className="col-span-2 sm:w-auto sm:min-w-40 sm:flex-1"
+      />
+      <DashboardTabSearch
+        placeholder={t("audit.targetFilterPlaceholder")}
+        value={filters.target ?? ""}
+        onChange={(target) => onChange({ ...filters, target })}
+        className="col-span-2 sm:w-auto sm:min-w-40 sm:flex-1"
+      />
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex">
-        <Select
-          value={filters.actorType ?? ALL}
-          onValueChange={(value) =>
-            onChange({
-              ...filters,
-              actorType: ACTOR_TYPE_VALUES.has(value)
-                ? (value as AuditActorType)
-                : undefined,
-            })
-          }
+      <Select
+        value={filters.actorType ?? ALL}
+        onValueChange={(value) =>
+          onChange({
+            ...filters,
+            actorType: ACTOR_TYPE_VALUES.has(value)
+              ? (value as AuditActorType)
+              : undefined,
+          })
+        }
+      >
+        <SelectTrigger aria-label={t("audit.actor")} className="w-full sm:w-32">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{t("audit.allActorTypes")}</SelectItem>
+          {AUDIT_ACTOR_TYPES.map((actorType) => (
+            <SelectItem key={actorType} value={actorType}>
+              {t(AUDIT_ACTOR_TYPE_LABEL_KEYS[actorType])}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.targetType ?? ALL}
+        onValueChange={(value) => {
+          const targetType = TARGET_TYPE_VALUES.has(value)
+            ? (value as AuditTargetType)
+            : undefined
+          onChange({
+            ...filters,
+            targetType,
+            // Keep an action filter only if it still fits the target type.
+            action:
+              filters.action &&
+              targetType &&
+              getAuditActionTargetType(filters.action) !== targetType
+                ? undefined
+                : filters.action,
+          })
+        }}
+      >
+        <SelectTrigger
+          aria-label={t("audit.target")}
+          className="w-full sm:w-36"
         >
-          <SelectTrigger
-            aria-label={t("audit.actor")}
-            className="w-full lg:w-36"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t("audit.allActorTypes")}</SelectItem>
-            {AUDIT_ACTOR_TYPES.map((actorType) => (
-              <SelectItem key={actorType} value={actorType}>
-                {t(AUDIT_ACTOR_TYPE_LABEL_KEYS[actorType])}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{t("audit.allTargetTypes")}</SelectItem>
+          {AUDIT_TARGET_TYPES.map((targetType) => (
+            <SelectItem key={targetType} value={targetType}>
+              {t(AUDIT_TARGET_TYPE_LABEL_KEYS[targetType])}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-        <Select
-          value={filters.targetType ?? ALL}
-          onValueChange={(value) => {
-            const targetType = TARGET_TYPE_VALUES.has(value)
-              ? (value as AuditTargetType)
-              : undefined
-            onChange({
-              ...filters,
-              targetType,
-              // Keep an action filter only if it still fits the target type.
-              action:
-                filters.action &&
-                targetType &&
-                getAuditActionTargetType(filters.action) !== targetType
-                  ? undefined
-                  : filters.action,
-            })
-          }}
+      <Select
+        value={filters.action ?? ALL}
+        onValueChange={(value) =>
+          onChange({
+            ...filters,
+            action: ACTION_VALUES.has(value)
+              ? (value as AuditAction)
+              : undefined,
+          })
+        }
+      >
+        <SelectTrigger
+          aria-label={t("audit.action")}
+          className="col-span-2 w-full sm:w-44"
         >
-          <SelectTrigger
-            aria-label={t("audit.target")}
-            className="w-full lg:w-36"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t("audit.allTargetTypes")}</SelectItem>
-            {AUDIT_TARGET_TYPES.map((targetType) => (
-              <SelectItem key={targetType} value={targetType}>
-                {t(AUDIT_TARGET_TYPE_LABEL_KEYS[targetType])}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{t("audit.allActions")}</SelectItem>
+          {actionOptions.map((action) => (
+            <SelectItem key={action} value={action}>
+              {t(AUDIT_ACTION_LABEL_KEYS[action])}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-        <Select
-          value={filters.action ?? ALL}
-          onValueChange={(value) =>
-            onChange({
-              ...filters,
-              action: ACTION_VALUES.has(value)
-                ? (value as AuditAction)
-                : undefined,
-            })
-          }
-        >
-          <SelectTrigger
-            aria-label={t("audit.action")}
-            className="col-span-2 w-full sm:col-span-1 lg:w-56"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t("audit.allActions")}</SelectItem>
-            {actions.map((action) => (
-              <SelectItem key={action} value={action}>
-                {t(AUDIT_ACTION_LABEL_KEYS[action])}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <AuditDateRangeFilter
-          from={filters.from}
-          to={filters.to}
-          onChange={(from, to) => onChange({ ...filters, from, to })}
-        />
-      </div>
+      <AuditDateRangeFilter
+        from={filters.from}
+        to={filters.to}
+        onChange={(from, to) => onChange({ ...filters, from, to })}
+      />
 
       {filters.batch && (
         <Button
           variant="secondary"
           size="sm"
           onClick={() => onChange({ ...filters, batch: undefined })}
-          className="self-start lg:self-auto"
+          className="justify-self-start"
         >
           <Layers className="h-4 w-4" />
           {t("audit.bulkAction")}
@@ -190,11 +193,13 @@ export function AuditLogFilters({ filters, onChange }: AuditLogFiltersProps) {
           variant="ghost"
           size="sm"
           onClick={() => onChange({})}
-          className="self-start lg:self-auto"
+          className="justify-self-start"
         >
           {t("audit.clearFilters")}
         </Button>
       )}
+
+      {actions && <div className="col-span-2 sm:ml-auto">{actions}</div>}
     </div>
   )
 }
@@ -232,7 +237,7 @@ function AuditDateRangeFilter({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="col-span-2 w-full justify-start font-normal sm:col-span-1 lg:w-auto"
+          className="col-span-2 w-full justify-start font-normal sm:w-auto"
         >
           <CalendarIcon className="h-4 w-4" />
           <span className="truncate">
