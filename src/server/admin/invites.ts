@@ -14,7 +14,6 @@ import { createInviteSchema, updateInviteSchema } from "@/lib/schemas"
 import { safeParse } from "@/lib/validation"
 import {
   bulkInvitesSchema,
-  inviteHistoryPageInputSchema,
   invitesPageInputSchema,
   type BulkInviteResultDto,
   type BulkInvitesDto,
@@ -26,9 +25,8 @@ import {
   type AuditScope,
 } from "@/server/audit"
 import { db, ensureMigrated } from "@/server/db"
-import { inviteUsages, invites, profiles, users } from "@/server/db/schema"
+import { inviteUsages, invites, profiles } from "@/server/db/schema"
 import { generateInviteCode } from "@/server/invites"
-import { getAllUsers } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
 
 const log = createChildLogger({ module: "admin-invites" })
@@ -46,24 +44,6 @@ type InviteListItem = {
   accessDurationDays: number | null
   createdAt: string
   status: InviteStatus
-}
-
-type InviteHistoryItem = {
-  id: string
-  inviteId: string
-  inviteCode: string
-  userId: string
-  userName: string
-  avatarUrl: string | null
-  usedAt: string
-}
-
-type PagedInviteHistory = {
-  items: InviteHistoryItem[]
-  page: number
-  pageSize: number
-  total: number
-  pageCount: number
 }
 
 type PagedInvites = {
@@ -553,159 +533,4 @@ async function applyBulkInviteOperation(
           : "Failed to update invite",
     }
   }
-}
-
-export async function getInviteHistoryService(): Promise<
-  ActionResult<InviteHistoryItem[]>
-> {
-  return getUnboundedInviteHistoryService()
-}
-
-export async function getInviteHistoryPageService(
-  input: StaticEncode<typeof inviteHistoryPageInputSchema>,
-): Promise<ActionResult<PagedInviteHistory>> {
-  const parsed = safeParse(inviteHistoryPageInputSchema, input)
-  if (!parsed.success) {
-    return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
-  }
-
-  const historyPage = parsed.data
-  const offset = (historyPage.page - 1) * historyPage.pageSize
-  const trimmedQuery = historyPage.query?.trim()
-  const searchFilter = getInviteHistorySearchFilter(trimmedQuery)
-
-  await ensureMigrated()
-
-  const [totalRow] = await db
-    .select({ total: count() })
-    .from(inviteUsages)
-    .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
-    .leftJoin(users, eq(inviteUsages.userId, users.userId))
-    .where(searchFilter)
-  const total = totalRow?.total ?? 0
-
-  const result = await db
-    .select({
-      id: inviteUsages.id,
-      inviteId: inviteUsages.inviteId,
-      inviteCode: invites.code,
-      userId: inviteUsages.userId,
-      localEmail: users.email,
-      usedAt: inviteUsages.usedAt,
-    })
-    .from(inviteUsages)
-    .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
-    .leftJoin(users, eq(inviteUsages.userId, users.userId))
-    .where(searchFilter)
-    .orderBy(
-      historyPage.direction === "asc"
-        ? asc(inviteUsages.usedAt)
-        : desc(inviteUsages.usedAt),
-    )
-    .limit(historyPage.pageSize)
-    .offset(offset)
-
-  const jellyfinUsersById = new Map<
-    string,
-    { name: string; avatarUrl: string }
-  >()
-  try {
-    const jellyfinUsers = await getAllUsers()
-    for (const jellyfinUser of jellyfinUsers) {
-      jellyfinUsersById.set(jellyfinUser.id, {
-        name: jellyfinUser.name,
-        avatarUrl: jellyfinUser.avatarUrl,
-      })
-    }
-  } catch (err) {
-    log.warn({ err }, "Failed to fetch Jellyfin users for invite history")
-  }
-
-  return success({
-    items: result.map((usage) => {
-      const jellyfinUser = usage.userId
-        ? jellyfinUsersById.get(usage.userId)
-        : null
-      return {
-        id: usage.id,
-        inviteId: usage.inviteId ?? "",
-        inviteCode: usage.inviteCode ?? "",
-        userId: usage.userId,
-        userName: jellyfinUser?.name ?? "Unknown",
-        avatarUrl: jellyfinUser?.avatarUrl ?? null,
-        usedAt: usage.usedAt.toISOString(),
-      }
-    }),
-    page: historyPage.page,
-    pageSize: historyPage.pageSize,
-    total,
-    pageCount: Math.ceil(total / historyPage.pageSize),
-  })
-}
-
-function getInviteHistorySearchFilter(
-  query: string | undefined,
-): SQL | undefined {
-  if (!query) {
-    return undefined
-  }
-
-  const pattern = `%${query}%`
-  return or(
-    like(invites.code, pattern),
-    like(inviteUsages.userId, pattern),
-    like(users.email, pattern),
-  )
-}
-
-async function getUnboundedInviteHistoryService(): Promise<
-  ActionResult<InviteHistoryItem[]>
-> {
-  await ensureMigrated()
-
-  const result = await db
-    .select({
-      id: inviteUsages.id,
-      inviteId: inviteUsages.inviteId,
-      inviteCode: invites.code,
-      userId: inviteUsages.userId,
-      usedAt: inviteUsages.usedAt,
-    })
-    .from(inviteUsages)
-    .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
-    .leftJoin(users, eq(inviteUsages.userId, users.userId))
-    .orderBy(desc(inviteUsages.usedAt))
-
-  const jellyfinUsersById = new Map<
-    string,
-    { name: string; avatarUrl: string }
-  >()
-  try {
-    const jellyfinUsers = await getAllUsers()
-    for (const jellyfinUser of jellyfinUsers) {
-      jellyfinUsersById.set(jellyfinUser.id, {
-        name: jellyfinUser.name,
-        avatarUrl: jellyfinUser.avatarUrl,
-      })
-    }
-  } catch (err) {
-    log.warn({ err }, "Failed to fetch Jellyfin users for invite history")
-  }
-
-  return success(
-    result.map((usage) => {
-      const jellyfinUser = usage.userId
-        ? jellyfinUsersById.get(usage.userId)
-        : null
-      return {
-        id: usage.id,
-        inviteId: usage.inviteId ?? "",
-        inviteCode: usage.inviteCode ?? "",
-        userId: usage.userId,
-        userName: jellyfinUser?.name ?? "Unknown",
-        avatarUrl: jellyfinUser?.avatarUrl ?? null,
-        usedAt: usage.usedAt.toISOString(),
-      }
-    }),
-  )
 }

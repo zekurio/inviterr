@@ -8,7 +8,8 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { Bot, Layers, ShieldCheck, User } from "lucide-react"
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
+import { toast } from "sonner"
 
 import { AuditEventDetails } from "@/components/audit/audit-event-details"
 import {
@@ -20,8 +21,8 @@ import { AuditLogFilters } from "@/components/audit/audit-log-filters"
 import { AuditRetentionDialog } from "@/components/audit/audit-retention-dialog"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/ui/data-table"
-import { DataTablePagination } from "@/components/ui/data-table-pagination"
 import { RelativeTime } from "@/components/ui/relative-time"
+import { Spinner } from "@/components/ui/spinner"
 import { createAppStore } from "@/hooks/store-utils"
 import { useScopedStore } from "@/hooks/use-scoped-store"
 import type {
@@ -30,6 +31,7 @@ import type {
   PagedAuditEventsDto,
 } from "@/lib/api/contracts/admin"
 import { useLocale, useTranslations } from "@/lib/i18n"
+import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 
 interface AuditLogTableProps {
   initialPage: PagedAuditEventsDto
@@ -38,12 +40,18 @@ interface AuditLogTableProps {
 }
 
 interface AuditLogTableState {
+  // Every event loaded so far, with the cursor and total of the latest page.
   page: PagedAuditEventsDto
   filters: AuditEventFiltersDto
   error: string | null
+  // The in-flight request for the next page. A fresh object per request, so a
+  // response that arrives after the list was replaced cannot match it.
+  loadingPage: { cursor: string } | null
   setPage: (page: PagedAuditEventsDto) => void
+  appendPage: (page: PagedAuditEventsDto) => void
   setFilters: (filters: AuditEventFiltersDto) => void
   setError: (error: string | null) => void
+  setLoadingPage: (loadingPage: { cursor: string } | null) => void
   setRetentionDays: (retentionDays: number) => void
 }
 
@@ -226,9 +234,15 @@ export function AuditLogTable({
       page: initialPage,
       filters: initialFilters,
       error: initialError,
+      loadingPage: null,
       setPage: (page) => set({ page }),
+      appendPage: (page) =>
+        set((state) => ({
+          page: { ...page, items: [...state.page.items, ...page.items] },
+        })),
       setFilters: (filters) => set({ filters }),
       setError: (error) => set({ error }),
+      setLoadingPage: (loadingPage) => set({ loadingPage }),
       setRetentionDays: (retentionDays) =>
         set((state) => ({ page: { ...state.page, retentionDays } })),
     })),
@@ -236,23 +250,27 @@ export function AuditLogTable({
   const page = useStore(scopedStore, (state) => state.page)
   const filters = useStore(scopedStore, (state) => state.filters)
   const error = useStore(scopedStore, (state) => state.error)
+  const isLoadingMore = useStore(
+    scopedStore,
+    (state) => state.loadingPage?.cursor === state.page.nextCursor,
+  )
+  const loadMoreRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     scopedStore.getState().setPage(initialPage)
     scopedStore.getState().setFilters(initialFilters)
     scopedStore.getState().setError(initialError)
+    scopedStore.getState().setLoadingPage(null)
   }, [initialError, initialFilters, initialPage, scopedStore])
 
-  // Filters live in the URL so the route loader fetches the page during
+  // Filters live in the URL so the route loader fetches the first page during
   // navigation and intent preloading instead of after render.
   const navigateToAuditPage = useCallback(
-    (nextFilters: AuditEventFiltersDto, nextPage: number) => {
+    (nextFilters: AuditEventFiltersDto) => {
       scopedStore.getState().setFilters(nextFilters)
       void navigate({
         to: "/dashboard/audit",
         search: {
-          page: nextPage,
-          pageSize: scopedStore.getState().page.pageSize,
           actorType: nextFilters.actorType,
           actor: nextFilters.actor || undefined,
           action: nextFilters.action,
@@ -268,17 +286,61 @@ export function AuditLogTable({
     [navigate, scopedStore],
   )
 
-  const handleFiltersChange = useCallback(
-    (nextFilters: AuditEventFiltersDto) => navigateToAuditPage(nextFilters, 1),
-    [navigateToAuditPage],
-  )
-
   // Clicking an actor, target, or bulk marker narrows the current view.
   const handleRowFilter = useCallback(
     (filter: AuditEventFiltersDto) =>
-      navigateToAuditPage({ ...scopedStore.getState().filters, ...filter }, 1),
+      navigateToAuditPage({ ...scopedStore.getState().filters, ...filter }),
     [navigateToAuditPage, scopedStore],
   )
+
+  const loadMore = useCallback(async () => {
+    const requested = scopedStore.getState()
+    const cursor = requested.page.nextCursor
+    if (!cursor || requested.loadingPage?.cursor === cursor) {
+      return
+    }
+
+    const request = { cursor }
+    requested.setLoadingPage(request)
+    const result = await runApiEffect(
+      getBrowserORPCClient().admin.audit.page({
+        ...requested.filters,
+        cursor,
+      }),
+    )
+    const current = scopedStore.getState()
+    // New loader data replaced the list while this page was loading.
+    if (current.loadingPage !== request) {
+      return
+    }
+    current.setLoadingPage(null)
+    if (!result.data) {
+      toast.error(t("audit.loadFailed"))
+      return
+    }
+    current.appendPage(result.data)
+  }, [scopedStore, t])
+
+  // Re-observing after every page loads the next one when the button is still
+  // in view. A failed load keeps the cursor, so it does not retry in a loop.
+  const nextCursor = page.nextCursor
+  useEffect(() => {
+    const button = loadMoreRef.current
+    if (!nextCursor || !button) {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMore()
+        }
+      },
+      { rootMargin: "0px 0px 600px 0px" },
+    )
+    observer.observe(button)
+    return () => observer.disconnect()
+  }, [loadMore, nextCursor])
 
   const handleRetentionSaved = useCallback(
     (retentionDays: number) => {
@@ -313,15 +375,16 @@ export function AuditLogTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-        <AuditLogFilters filters={filters} onChange={handleFiltersChange} />
-        <div className="shrink-0">
+      <AuditLogFilters
+        filters={filters}
+        onChange={navigateToAuditPage}
+        actions={
           <AuditRetentionDialog
             retentionDays={page.retentionDays}
             onSaved={handleRetentionSaved}
           />
-        </div>
-      </div>
+        }
+      />
 
       <div className="space-y-2 md:hidden">
         {rows.length ? (
@@ -373,21 +436,18 @@ export function AuditLogTable({
             ? t("audit.eventCountSingle", { count: page.total })
             : t("audit.eventCountPlural", { count: page.total })}
         </p>
-        <DataTablePagination
-          page={page.page}
-          pageCount={Math.max(page.pageCount, 1)}
-          canPrevious={page.page > 1}
-          canNext={page.page < page.pageCount}
-          onPrevious={() =>
-            navigateToAuditPage(filters, Math.max(page.page - 1, 1))
-          }
-          onNext={() =>
-            navigateToAuditPage(
-              filters,
-              Math.min(page.page + 1, page.pageCount),
-            )
-          }
-        />
+        {nextCursor && (
+          <Button
+            ref={loadMoreRef}
+            variant="outline"
+            size="sm"
+            onClick={() => void loadMore()}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore && <Spinner size="sm" />}
+            {t("audit.loadMore")}
+          </Button>
+        )}
       </div>
     </div>
   )

@@ -71,37 +71,28 @@ export const pageInputSchema = Type.Decode(
 
 export const sortDirectionSchema = enumValues(["asc", "desc"])
 
-export const inviteHistoryPageInputSchema = Type.Decode(
-  Type.Object({
-    ...pageProperties,
-    query: Type.Optional(trimmedString({ maxLength: 100 })),
-    sort: Type.Optional(defaulted(enumValues(["usedAt"]), "usedAt")),
-    direction: Type.Optional(defaulted(sortDirectionSchema, "desc")),
-  }),
-  (value) => ({
-    ...value,
-    page: value.page ?? 1,
-    pageSize: value.pageSize ?? 50,
-    sort: value.sort ?? "usedAt",
-    direction: value.direction ?? "desc",
-  }),
-)
+const auditEventFilterProperties = {
+  actorType: Type.Optional(enumValues(AUDIT_ACTOR_TYPES)),
+  actor: Type.Optional(trimmedString({ maxLength: 100 })),
+  action: Type.Optional(enumValues(AUDIT_ACTIONS)),
+  targetType: Type.Optional(enumValues(AUDIT_TARGET_TYPES)),
+  target: Type.Optional(trimmedString({ maxLength: 100 })),
+  batch: Type.Optional(UuidStringSchema),
+  from: Type.Optional(DateTimeStringSchema),
+  to: Type.Optional(DateTimeStringSchema),
+}
+
+export const auditEventFiltersSchema = Type.Object(auditEventFilterProperties)
 
 export const auditEventsPageInputSchema = Type.Decode(
   Type.Object({
-    ...pageProperties,
-    actorType: Type.Optional(enumValues(AUDIT_ACTOR_TYPES)),
-    actor: Type.Optional(trimmedString({ maxLength: 100 })),
-    action: Type.Optional(enumValues(AUDIT_ACTIONS)),
-    targetType: Type.Optional(enumValues(AUDIT_TARGET_TYPES)),
-    target: Type.Optional(trimmedString({ maxLength: 100 })),
-    batch: Type.Optional(UuidStringSchema),
-    from: Type.Optional(DateTimeStringSchema),
-    to: Type.Optional(DateTimeStringSchema),
+    ...auditEventFilterProperties,
+    pageSize: pageProperties.pageSize,
+    // Keyset cursor "<created_at ms>:<id>" of the last event already loaded.
+    cursor: Type.Optional(Type.String({ pattern: "^\\d{1,15}:[\\w-]{1,64}$" })),
   }),
   (value) => ({
     ...value,
-    page: value.page ?? 1,
     pageSize: value.pageSize ?? 50,
   }),
 )
@@ -264,16 +255,6 @@ export const accessRequestDecisionResponseSchema = Type.Object({
   requestId: AnyStringSchema,
 })
 
-export const inviteHistoryItemSchema = Type.Object({
-  id: AnyStringSchema,
-  inviteId: AnyStringSchema,
-  inviteCode: AnyStringSchema,
-  userId: AnyStringSchema,
-  userName: AnyStringSchema,
-  avatarUrl: NullableStringSchema,
-  usedAt: DateTimeStringSchema,
-})
-
 export const createInviteBodySchema = Type.Object({
   profileId: UuidStringSchema,
   code: Type.Optional(stringSchema({ maxLength: 32 })),
@@ -347,14 +328,6 @@ export const usersWithProfilesResponseSchema = Type.Object({
   seerrConfigured: BooleanSchema,
 })
 
-export const pagedInviteHistoryResponseSchema = Type.Object({
-  items: Type.Array(inviteHistoryItemSchema),
-  page: boundedIntSchema(1, Number.MAX_SAFE_INTEGER),
-  pageSize: boundedIntSchema(1, 100),
-  total: NonNegativeIntSchema,
-  pageCount: NonNegativeIntSchema,
-})
-
 const auditScalarSchema = Type.Union([
   Type.String(),
   Type.Number(),
@@ -387,10 +360,8 @@ export const auditEventSchema = Type.Object({
 
 export const pagedAuditEventsResponseSchema = Type.Object({
   items: Type.Array(auditEventSchema),
-  page: boundedIntSchema(1, Number.MAX_SAFE_INTEGER),
-  pageSize: boundedIntSchema(1, 100),
+  nextCursor: NullableStringSchema,
   total: NonNegativeIntSchema,
-  pageCount: NonNegativeIntSchema,
   retentionDays: boundedIntSchema(0, AUDIT_RETENTION_MAX_DAYS),
 })
 
@@ -624,7 +595,6 @@ export const mediaLibrarySchema = Type.Object({
 
 export const profilesResponseSchema = Type.Array(profileSchema)
 export const invitesResponseSchema = Type.Array(inviteSchema)
-export const inviteHistoryResponseSchema = Type.Array(inviteHistoryItemSchema)
 export const librariesResponseSchema = Type.Array(mediaLibrarySchema)
 
 export const adminErrorResponses = {
@@ -678,26 +648,13 @@ export type AccessRequestsSettingsDto = StaticDecode<
 export type UpdateAccessRequestsSettingsInput = StaticDecode<
   typeof updateAccessRequestsSettingsBodySchema
 >
-export type InviteHistoryItemDto = StaticDecode<typeof inviteHistoryItemSchema>
-export type InviteHistoryPageInputDto = StaticEncode<
-  typeof inviteHistoryPageInputSchema
->
 export type InvitesPageInputDto = StaticEncode<typeof invitesPageInputSchema>
-export type AuditEventsPageInputDto = StaticEncode<
-  typeof auditEventsPageInputSchema
->
-export type AuditEventFiltersDto = Omit<
-  StaticDecode<typeof auditEventsPageInputSchema>,
-  "page" | "pageSize"
->
+export type AuditEventFiltersDto = StaticDecode<typeof auditEventFiltersSchema>
 export type AuditEventDto = StaticDecode<typeof auditEventSchema>
 export type PagedAuditEventsDto = StaticDecode<
   typeof pagedAuditEventsResponseSchema
 >
 export type UsersPageInputDto = StaticEncode<typeof usersPageInputSchema>
-export type PagedInviteHistoryDto = StaticDecode<
-  typeof pagedInviteHistoryResponseSchema
->
 export type PagedInvitesDto = StaticDecode<typeof pagedInvitesResponseSchema>
 export type PagedUsersWithProfilesDto = StaticDecode<
   typeof pagedUsersWithProfilesResponseSchema

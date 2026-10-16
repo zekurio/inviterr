@@ -4,6 +4,7 @@ import {
   desc,
   eq,
   gte,
+  lt,
   lte,
   or,
   sql,
@@ -50,22 +51,24 @@ export async function listAuditEventsPageService(
 
   const [[totalRow], rows] = await Promise.all([
     db.select({ total: count() }).from(audit_events).where(filter),
+    // One extra row tells whether another page follows.
     db
       .select()
       .from(audit_events)
-      .where(filter)
-      .orderBy(desc(audit_events.created_at))
-      .limit(auditPage.pageSize)
-      .offset((auditPage.page - 1) * auditPage.pageSize),
+      .where(and(filter, getAuditCursorFilter(auditPage.cursor)))
+      .orderBy(desc(audit_events.created_at), desc(audit_events.id))
+      .limit(auditPage.pageSize + 1),
   ])
-  const total = totalRow?.total ?? 0
+  const items = rows.slice(0, auditPage.pageSize)
+  const last = items.at(-1)
 
   return success({
-    items: rows.map(toAuditEventDto),
-    page: auditPage.page,
-    pageSize: auditPage.pageSize,
-    total,
-    pageCount: Math.ceil(total / auditPage.pageSize),
+    items: items.map(toAuditEventDto),
+    nextCursor:
+      rows.length > auditPage.pageSize && last
+        ? `${last.created_at.getTime()}:${last.id}`
+        : null,
+    total: totalRow?.total ?? 0,
     retentionDays: configManager.audit.retentionDays,
   })
 }
@@ -102,6 +105,23 @@ function getAuditEventsFilter(
     auditPage.to
       ? lte(audit_events.created_at, new Date(auditPage.to))
       : undefined,
+  )
+}
+
+// Pages continue strictly after the cursor's event in (created_at, id) order,
+// so events recorded while an admin scrolls never shift or repeat rows.
+function getAuditCursorFilter(cursor: string | undefined): SQL | undefined {
+  if (!cursor) {
+    return undefined
+  }
+
+  // The schema guarantees "<created_at ms>:<id>".
+  const separator = cursor.indexOf(":")
+  const createdAt = new Date(Number(cursor.slice(0, separator)))
+  const id = cursor.slice(separator + 1)
+  return or(
+    lt(audit_events.created_at, createdAt),
+    and(eq(audit_events.created_at, createdAt), lt(audit_events.id, id)),
   )
 }
 

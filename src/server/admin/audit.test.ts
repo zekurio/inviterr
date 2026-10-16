@@ -267,6 +267,50 @@ describe("audit log", () => {
     expect(await searchLabels("%")).toEqual(["100%"])
   })
 
+  it("pages with a cursor that events recorded meanwhile do not shift", async () => {
+    const setup = await loadAuditModules()
+    const dayAgo = Date.now() - DAY_MS
+    // event-b and event-c share a timestamp, so the id breaks the tie.
+    await setup.database.db.insert(setup.schema.audit_events).values(
+      [
+        { id: "event-a", minutesEarlier: 0 },
+        { id: "event-b", minutesEarlier: 1 },
+        { id: "event-c", minutesEarlier: 1 },
+        { id: "event-d", minutesEarlier: 2 },
+        { id: "event-e", minutesEarlier: 3 },
+      ].map((event) => ({
+        id: event.id,
+        created_at: new Date(dayAgo - event.minutesEarlier * 60_000),
+        actor_type: "system" as const,
+        action: "invite.reconciled" as const,
+        target_type: "invite" as const,
+      })),
+    )
+    const client = createClient(setup, adminSession)
+
+    const first = await client.admin.audit.page({ pageSize: 2 })
+    // Newer than everything listed so far, so offset paging would repeat a row.
+    await setup.audit.recordAuditEvent(SYSTEM_AUDIT_ACTOR, {
+      action: "invite.reconciled",
+      target: { id: null },
+    })
+    const second = await client.admin.audit.page({
+      pageSize: 2,
+      cursor: first.nextCursor!,
+    })
+    const third = await client.admin.audit.page({
+      pageSize: 2,
+      cursor: second.nextCursor!,
+    })
+
+    expect(
+      [first, second, third].flatMap((page) =>
+        page.items.map((item) => item.id),
+      ),
+    ).toEqual(["event-a", "event-c", "event-b", "event-d", "event-e"])
+    expect(third).toMatchObject({ nextCursor: null, total: 6 })
+  })
+
   it("records settings changes without storing secrets", async () => {
     const setup = await loadAuditModules()
     const client = createClient(setup, adminSession)
