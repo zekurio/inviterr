@@ -30,10 +30,10 @@
           configPath ? "./data/config.json",
           logLevel ? "info",
           denoDepsHashes ? {
-            aarch64-darwin = "sha256-1of5TDA1zxXIoP8wZgZtpezN9AcmPeg3LHU9fj12G5c=";
-            x86_64-darwin = "sha256-ChWTkMLBP6KugB4CxJpOL/CpbTfM6T7eC2RDU3EAEYA=";
-            aarch64-linux = "sha256-LFwK228//lbIkH4+fM9goxS6cxj2DLjS0hR9S7PYjd8=";
-            x86_64-linux = "sha256-lh6wuUz9yJen28K3SS/nrFa6Uo7NDNHzMl1JRyzKHqw=";
+            aarch64-darwin = "sha256-X1MD0du6smYIvagUcq6qdr3S3WeBZa0C/RgyaOC26d4=";
+            x86_64-darwin = "sha256-LMnOPfzu486r38huFEIR40tPLVOL0E0PmDou+4N/UrA=";
+            aarch64-linux = "sha256-tBEED/4Ezeb9ISgld6f+GP//0EH7+N5yLt2zXac/ngI=";
+            x86_64-linux = "sha256-P8GwTiLIk7izMfgWDrxYqxgsEqF0iFL66130K32yZus=";
           },
         }:
         let

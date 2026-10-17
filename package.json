@@ -64,6 +64,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260414.1",
     "@vitejs/plugin-react": "5.2.0",
     "drizzle-kit": "0.31.10",
+    "lightningcss": "1.33.0",
     "oxfmt": "0.58.0",
     "oxlint": "1.73.0",
     "oxlint-tsgolint": "0.24.0",
