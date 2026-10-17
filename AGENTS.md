@@ -30,6 +30,11 @@
 - All of `deno task format:check`, `deno task lint`, `deno task typecheck`, and
   `deno task test` must pass before a coding task is complete. Persisted-shape
   changes also need the generated migration plus `deno task db:check`.
+- Always name migrations descriptively in snake_case:
+  `deno task db:generate --name=<what_changed>` (add `--custom` for data
+  migrations), never drizzle's random names. To rename a migration, change
+  only the `.sql` filename and its `_journal.json` `tag`; keep the SQL and
+  `when` unchanged, since the migrator tracks applied migrations by those.
 - Do not run `deno task build` during normal app work; it can disrupt a running
   dev server. Run Nix checks (`nix flake check`) only when touching packaging,
   `flake.nix`, or the NixOS module.
