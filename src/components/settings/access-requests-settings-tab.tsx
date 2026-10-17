@@ -5,6 +5,7 @@ import { toast } from "sonner"
 
 import { FormShell } from "@/components/shared/form-shell"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
   FieldDescription,
@@ -18,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { createAppStore } from "@/hooks/store-utils"
 import { useDashboardSettingsTabDirty } from "@/hooks/use-dashboard-settings-dirty"
 import { useScopedStore } from "@/hooks/use-scoped-store"
@@ -150,15 +150,15 @@ export function AccessRequestsSettingsTab({
           )}
 
           <Field orientation="horizontal">
-            <Switch
+            <Checkbox
               id="access-requests-enabled"
               checked={values.enabled}
               // Turning the feature off stays possible after SMTP is removed.
               disabled={
                 isSaving || (!settings.deliveryReady && !values.enabled)
               }
-              onCheckedChange={(enabled) =>
-                store.getState().setValues({ enabled })
+              onCheckedChange={(checked) =>
+                store.getState().setValues({ enabled: checked === true })
               }
             />
             <div className="grid gap-0.5">
@@ -168,9 +168,9 @@ export function AccessRequestsSettingsTab({
               >
                 {t("settings.accessRequestsEnabled")}
               </FieldLabel>
-              <FieldDescription>
+              <p className="text-muted-foreground text-xs">
                 {t("settings.accessRequestsEnabledDescription")}
-              </FieldDescription>
+              </p>
             </div>
           </Field>
 
