@@ -20,28 +20,28 @@
       "idx": 2,
       "version": "6",
       "when": 1792066996116,
-      "tag": "0002_moaning_microbe",
+      "tag": "0002_invite_access_duration",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "6",
       "when": 1792078924818,
-      "tag": "0003_strange_captain_cross",
+      "tag": "0003_pending_redemptions",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "6",
       "when": 1792099718898,
-      "tag": "0004_bouncy_the_hunter",
+      "tag": "0004_access_requests",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "6",
       "when": 1792099842729,
-      "tag": "0005_remarkable_xavin",
+      "tag": "0005_audit_events",
       "breakpoints": true
     },
     {
