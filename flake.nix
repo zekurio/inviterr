@@ -30,10 +30,10 @@
           configPath ? "./data/config.json",
           logLevel ? "info",
           denoDepsHashes ? {
-            aarch64-darwin = "sha256-X1MD0du6smYIvagUcq6qdr3S3WeBZa0C/RgyaOC26d4=";
-            x86_64-darwin = "sha256-LMnOPfzu486r38huFEIR40tPLVOL0E0PmDou+4N/UrA=";
-            aarch64-linux = "sha256-tBEED/4Ezeb9ISgld6f+GP//0EH7+N5yLt2zXac/ngI=";
-            x86_64-linux = "sha256-P8GwTiLIk7izMfgWDrxYqxgsEqF0iFL66130K32yZus=";
+            aarch64-darwin = "sha256-LsOs82Qm/oOB+tWUNAbPqu/jJMRANP5/gsM1NhVa2zU=";
+            x86_64-darwin = "sha256-3SxnUefTy1t2A6uIKwtP62YDy7n0L7kNfpvGgrhvLQ4=";
+            aarch64-linux = "sha256-/YMJfqh7AH4VnfPNkOFsVyaChkyIxHVlOELzR6FcsJc=";
+            x86_64-linux = "sha256-ligEMemW99dzCTDO7wk+H0nm8Kcms3BJoA8GJM3+baw=";
           },
         }:
         let
@@ -147,7 +147,7 @@
               --cached-only \
               --node-modules-dir=manual \
               -A \
-              npm:vite@7.3.6 \
+              npm:vite@7.3.7 \
               build
             runHook postBuild
           '';
