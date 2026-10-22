@@ -25,11 +25,11 @@
     "npm:@react-email/render@2.0.10": "2.0.10_react@19.2.7_react-dom@19.2.7__react@19.2.7",
     "npm:@standard-schema/spec@1.1.0": "1.1.0",
     "npm:@t3-oss/env-core@0.13.11": "0.13.11_typescript@5.9.3",
-    "npm:@tailwindcss/vite@4.3.2": "4.3.2_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0",
+    "npm:@tailwindcss/vite@4.3.2": "4.3.2_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0",
     "npm:@tanstack/react-query@5.101.2": "5.101.2_react@19.2.7",
     "npm:@tanstack/react-router-ssr-query@1.167.1": "1.167.1_@tanstack+react-query@5.101.2__react@19.2.7_@tanstack+react-router@1.170.42__react@19.2.7__react-dom@19.2.7___react@19.2.7_react@19.2.7_react-dom@19.2.7__react@19.2.7",
     "npm:@tanstack/react-router@1.170.42": "1.170.42_react@19.2.7_react-dom@19.2.7__react@19.2.7",
-    "npm:@tanstack/react-start@1.168.61": "1.168.61_react@19.2.7_react-dom@19.2.7__react@19.2.7_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0",
+    "npm:@tanstack/react-start@1.168.61": "1.168.61_react@19.2.7_react-dom@19.2.7__react@19.2.7_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0",
     "npm:@tanstack/react-store@0.9.3": "0.9.3_react@19.2.7_react-dom@19.2.7__react@19.2.7",
     "npm:@tanstack/react-table@8.21.3": "8.21.3_react@19.2.7_react-dom@19.2.7__react@19.2.7",
     "npm:@tanstack/store@0.9.3": "0.9.3",
@@ -37,7 +37,7 @@
     "npm:@types/react-dom@19.2.3": "19.2.3_@types+react@19.2.17",
     "npm:@types/react@19.2.17": "19.2.17",
     "npm:@typescript/native-preview@7.0.0-dev.20260414.1": "7.0.0-dev.20260414.1",
-    "npm:@vitejs/plugin-react@5.2.0": "5.2.0_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0",
+    "npm:@vitejs/plugin-react@5.2.0": "5.2.0_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0",
     "npm:class-variance-authority@0.7.1": "0.7.1",
     "npm:clsx@2.1.1": "2.1.1",
     "npm:date-fns@4.4.0": "4.4.0",
@@ -47,7 +47,7 @@
     "npm:lucide-react@0.563.0": "0.563.0_react@19.2.7",
     "npm:marked@18.0.5": "18.0.5",
     "npm:next-themes@0.4.6": "0.4.6_react@19.2.7_react-dom@19.2.7__react@19.2.7",
-    "npm:nitro@3.0.260610-beta": "3.0.260610-beta_rollup@4.62.2_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0",
+    "npm:nitro@3.0.260610-beta": "3.0.260610-beta_rollup@4.62.2_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0",
     "npm:nodemailer@10.0.16": "10.0.16",
     "npm:oxfmt@0.58.0": "0.58.0",
     "npm:oxlint-tsgolint@0.24.0": "0.24.0",
@@ -68,9 +68,9 @@
     "npm:tw-animate-css@1.4.0": "1.4.0",
     "npm:typebox@1.3.25": "1.3.25",
     "npm:typescript@5.9.3": "5.9.3",
-    "npm:vite-tsconfig-paths@5.1.4": "5.1.4_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0",
-    "npm:vite@7.3.6": "7.3.6_@types+node@24.13.3_lightningcss@1.33.0",
-    "npm:vitest@4.1.11": "4.1.11_@types+node@24.13.3_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0"
+    "npm:vite-tsconfig-paths@5.1.4": "5.1.4_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0",
+    "npm:vite@7.3.7": "7.3.7_@types+node@24.13.3_lightningcss@1.33.0",
+    "npm:vitest@4.1.12": "4.1.12_@types+node@24.13.3_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0"
   },
   "npm": {
     "@babel/code-frame@7.29.7": {
@@ -2570,7 +2570,7 @@
         "@tailwindcss/oxide-win32-x64-msvc"
       ]
     },
-    "@tailwindcss/vite@4.3.2_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0": {
+    "@tailwindcss/vite@4.3.2_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0": {
       "integrity": "sha512-eHpMeX4JXfVNJDEcsouTeCBubJBTcTLigeaw/NTUW6PB5ATKKXdyonnXgTBX2VuRbjz1hjfz6C5XAhr52ImQXA==",
       "dependencies": [
         "@tailwindcss/node",
@@ -2624,7 +2624,7 @@
         "react-dom"
       ]
     },
-    "@tanstack/react-start-rsc@0.1.60_react@19.2.7_react-dom@19.2.7__react@19.2.7_rollup@4.62.2_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0": {
+    "@tanstack/react-start-rsc@0.1.60_react@19.2.7_react-dom@19.2.7__react@19.2.7_@types+node@24.13.3_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0": {
       "integrity": "sha512-P1k3zjsYNr7j9StKDpBi1aYD+D/9iMQ1f0H2UPqAMPyQzy4I09ikPpEkbOtjTGUCVZrEjE54x+yjixrbXyMsbg==",
       "dependencies": [
         "@tanstack/react-router",
@@ -2649,7 +2649,7 @@
         "react-dom"
       ]
     },
-    "@tanstack/react-start@1.168.61_react@19.2.7_react-dom@19.2.7__react@19.2.7_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0": {
+    "@tanstack/react-start@1.168.61_react@19.2.7_react-dom@19.2.7__react@19.2.7_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0": {
       "integrity": "sha512-qZdnI9Hug445JN5dEpq5aIVGqu6YVSmKOE3rw82ugJ9D65Kd7SWvP9/4M6jAo+P3qX1y6RtGuD3ascVxB0WIgQ==",
       "dependencies": [
         "@tanstack/react-router",
@@ -2717,7 +2717,7 @@
         "zod"
       ]
     },
-    "@tanstack/router-plugin@1.168.43_@tanstack+react-router@1.170.42__react@19.2.7__react-dom@19.2.7___react@19.2.7_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0_react@19.2.7_react-dom@19.2.7__react@19.2.7_rollup@4.62.2": {
+    "@tanstack/router-plugin@1.168.43_@tanstack+react-router@1.170.42__react@19.2.7__react-dom@19.2.7___react@19.2.7_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0": {
       "integrity": "sha512-0cMS2IhVJ1rfBqgcsLWBhKhHaW1oC26zCU2QveZnlDO+EjwuNH5XkRt+ZxhAinZZJIIRX7LEC/SBvjUutS4Zrw==",
       "dependencies": [
         "@babel/core",
@@ -2768,7 +2768,7 @@
     "@tanstack/start-fn-stubs@1.162.0": {
       "integrity": "sha512-QWfUZ3Yo923tdQn38LyKMU8rcTw69zc+T4dAvgTWV4O56SqFRsGfS0lSWIMhJRwXIx/bvdi7nTUBDdZtTHtpTQ=="
     },
-    "@tanstack/start-plugin-core@1.171.50_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_@tanstack+react-router@1.170.42__react@19.2.7__react-dom@19.2.7___react@19.2.7_react@19.2.7_react-dom@19.2.7__react@19.2.7_rollup@4.62.2": {
+    "@tanstack/start-plugin-core@1.171.50_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3": {
       "integrity": "sha512-qgxii74+p8oTVTPEeDKqiTS/ORXw9+Xt6DRkq0tPqjs8Q7NYxE9L9wl+ABFQFeVgrCSm9/08TKYc0X40A29hCw==",
       "dependencies": [
         "@babel/code-frame",
@@ -2942,7 +2942,7 @@
       ],
       "bin": true
     },
-    "@vitejs/plugin-react@5.2.0_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0": {
+    "@vitejs/plugin-react@5.2.0_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0": {
       "integrity": "sha512-YmKkfhOAi3wsB1PhJq5Scj3GXMn3WvtQ/JC0xoopuHoXSdmtdStOpFrYaT1kie2YgFBcIe64ROzMYRjCrYOdYw==",
       "dependencies": [
         "@babel/core",
@@ -2954,8 +2954,8 @@
         "vite"
       ]
     },
-    "@vitest/expect@4.1.11": {
-      "integrity": "sha512-VX2x5vNJXET47KAFzwERI+KRMtTTCSWTfSMKsW7JsUsXV4psq++e3DvZpuTDOpHcxytiDs6p2nhVb2tVDiiUYw==",
+    "@vitest/expect@4.1.12": {
+      "integrity": "sha512-vFlTt+YEu9WBpNjdGayNmlMVzrWPi1+sv853/7t2FU7hpO5gAFBKHzQmkCq5Xjpr+evegF2994LQT3hF3mRlqQ==",
       "dependencies": [
         "@standard-schema/spec",
         "@types/chai",
@@ -2965,8 +2965,8 @@
         "tinyrainbow"
       ]
     },
-    "@vitest/mocker@4.1.11_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0": {
-      "integrity": "sha512-2XJVD55d1o5AZous5CCGKS74g/riOj9odEt2bQpCVZeblHyHdnMeFl4jl0XjU21stf4mbjUkew2eXQZt65g5CQ==",
+    "@vitest/mocker@4.1.12_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0": {
+      "integrity": "sha512-fKShNpKZzupWZuY0z7egydvL0sqW4INEZBEExMBMAa6izlENEVHwoXgdaTCaBZ5fwlr4xf2o1wXC83n9RpO+NA==",
       "dependencies": [
         "@vitest/spy",
         "estree-walker",
@@ -2977,21 +2977,21 @@
         "vite"
       ]
     },
-    "@vitest/pretty-format@4.1.11": {
-      "integrity": "sha512-yiZzPbGTS9Sr/JpFl8zHrcIkAofNbFV6k21vIgQN/cY/oxZeXhJv5sc/MBJ5jFKWmWs+oJHw0UXLZjmf931+Vw==",
+    "@vitest/pretty-format@4.1.12": {
+      "integrity": "sha512-XW9O8+Mxx4VpCtkYdMJLZQQwsVryP9wk7cPKDxtXFfwSak6yRh5+2fep/Y0XF/ElBvJHq8bcYdi6aeuai0opZA==",
       "dependencies": [
         "tinyrainbow"
       ]
     },
-    "@vitest/runner@4.1.11": {
-      "integrity": "sha512-LztvUgdwMNJMIkj3hQnnxiC2Xy1zNxq928W/xhjCLaNCzqTZOudjwbQf6v9IntZGPw132i2Lq2rgTRZHD3JHNw==",
+    "@vitest/runner@4.1.12": {
+      "integrity": "sha512-NKlVKCr5QnCe8jijdMnmkpHHU+WTqiLFR6G0pHji9uRjXK9xJl1k1nTw6F3pOOj2PDcsDt2GKQMI7wIsaT491w==",
       "dependencies": [
         "@vitest/utils",
         "pathe"
       ]
     },
-    "@vitest/snapshot@4.1.11": {
-      "integrity": "sha512-pN7ikn1ON7h8ee4gIAp4AzyK+zBtJPzVbqOgu5LCEh4VaJVbPQcgYQYJIMGQPXVeJJq1fnfazis7a5pFNPahog==",
+    "@vitest/snapshot@4.1.12": {
+      "integrity": "sha512-ko1y1Qgb/slzQ9mr+b89Cuqud8WG1TKtsPD8r7ZUBdvVOGt85Af2HwCqHujrhwJq95hs/9RM7fcAPg57o1vlzw==",
       "dependencies": [
         "@vitest/pretty-format",
         "@vitest/utils",
@@ -2999,11 +2999,11 @@
         "pathe"
       ]
     },
-    "@vitest/spy@4.1.11": {
-      "integrity": "sha512-apNa/prQy2qCeywhnixOHPRCgGNhvg7T4Dapfl1GahLp/R+uhBm5cPyFoNVyqsNd2h1nJxL6BqqdIjiABL60YA=="
+    "@vitest/spy@4.1.12": {
+      "integrity": "sha512-RGq9x4JNGNTZHEJxvN0oSiJjeSCExm0n2gZKKJZHY9cX5AVA6M7VJILBT3ZJ/tJ/0J9uWT7fETV9/btoi//vSg=="
     },
-    "@vitest/utils@4.1.11": {
-      "integrity": "sha512-zTCVGpyFsGWBhllOyKlTw/vnr6D9qxsfSDyfbyZmTyjHw5N/VuvzHpHoQjm2ZJzn4RJgx5w4r7V0er69CmLgPQ==",
+    "@vitest/utils@4.1.12": {
+      "integrity": "sha512-Q3awXrwOfEV+qc3WmO5ONyE0yO7Q1gQ9/oyHxGLZ/pl7N3NO/ZztqQwKLuwMkV+CA1JYSIeO3gkHnRDIo4AVaA==",
       "dependencies": [
         "@vitest/pretty-format",
         "convert-source-map",
@@ -3601,7 +3601,7 @@
     "nf3@0.3.24": {
       "integrity": "sha512-HxLK4bo+5jNsEETZp4w3tJblHOA9MCBY14IN9nZJJV8JDxt9yNIYxuBuLMjTAR5GFa3HL61+8VQDUrXv3/C8fw=="
     },
-    "nitro@3.0.260610-beta_rollup@4.62.2_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0": {
+    "nitro@3.0.260610-beta_rollup@4.62.2_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0": {
       "integrity": "sha512-KPb4L5yaF/Rx/xoGMpgHRJvZhbhGiqbRKOwwPLCH9jKTKTsEUHLjnJas85AeCzaswqa8Wi52eQBtRsODC4PS0Q==",
       "dependencies": [
         "consola",
@@ -4247,7 +4247,7 @@
         "pathe"
       ]
     },
-    "unplugin@3.4.0_rollup@4.62.2_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0": {
+    "unplugin@3.4.0_rollup@4.62.2_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0": {
       "integrity": "sha512-9skdIFlCsPdFV7wUfZxNsFInlW+7nJmGu2gkTu0OUhF56aXGsHab9x52/QhdJ4lC7ZDPWTxbiC4ANqVlsuaW3w==",
       "dependencies": [
         "@jridgewell/remapping",
@@ -4310,7 +4310,7 @@
         "react"
       ]
     },
-    "vite-tsconfig-paths@5.1.4_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0": {
+    "vite-tsconfig-paths@5.1.4_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0": {
       "integrity": "sha512-cYj0LRuLV2c2sMqhqhGpaO3LretdtMn/BVX4cPLanIZuwwrkVl+lK84E/miEXkCHWXuq65rhNN4rXsBcOB3S4w==",
       "dependencies": [
         "debug",
@@ -4322,8 +4322,8 @@
         "vite"
       ]
     },
-    "vite@7.3.6_@types+node@24.13.3_lightningcss@1.33.0": {
-      "integrity": "sha512-4XP60spRGjSZFf1qYH+dJIkK2znL3zQfl9KkOV9MkkRR/3Dls0dxaBsQPTloEc5BLXWPL9vsOxopxyKoMmDueg==",
+    "vite@7.3.7_@types+node@24.13.3_lightningcss@1.33.0": {
+      "integrity": "sha512-AHEzTORMbi7/7aXp7w7KZ5+DCUdSeLsJz0grY8xHpc9DHdYb0vQu6DqJfm2tOw3gDExNgPgnJTXxM6syYFHaCA==",
       "dependencies": [
         "@types/node",
         "esbuild",
@@ -4343,7 +4343,7 @@
       ],
       "bin": true
     },
-    "vitefu@1.1.3_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0": {
+    "vitefu@1.1.3_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_@types+node@24.13.3_lightningcss@1.33.0": {
       "integrity": "sha512-ub4okH7Z5KLjb6hDyjqrGXqWtWvoYdU3IGm/NorpgHncKoLTCfRIbvlhBm7r0YstIaQRYlp4yEbFqDcKSzXSSg==",
       "dependencies": [
         "vite"
@@ -4352,8 +4352,8 @@
         "vite"
       ]
     },
-    "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0": {
-      "integrity": "sha512-fhACrNXUidIbGSBr5FlbuBkO7VWC1ZyLl0DO4CU2DrQoAPxX84Ysxs+HeGQpii5lZWV1Q4gBZTTu49mF+A6Edw==",
+    "vitest@4.1.12_@types+node@24.13.3_vite@7.3.7__@types+node@24.13.3__lightningcss@1.33.0_lightningcss@1.33.0": {
+      "integrity": "sha512-5eWdz2yb3ajxWF3C8C4TjkXl7FGm3n2E/VlazALrQHzK7nYMSGFnCZto0bbPNl77AwkOZVLk0YnBAejUu0NiWA==",
       "dependencies": [
         "@types/node",
         "@vitest/expect",
@@ -4486,8 +4486,8 @@
         "npm:typebox@1.3.25",
         "npm:typescript@5.9.3",
         "npm:vite-tsconfig-paths@5.1.4",
-        "npm:vite@7.3.6",
-        "npm:vitest@4.1.11"
+        "npm:vite@7.3.7",
+        "npm:vitest@4.1.12"
       ],
       "overrides": {
         "@babel/core": "7.29.6",
