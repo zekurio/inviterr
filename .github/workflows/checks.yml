@@ -18,42 +18,46 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Set up Deno
-        uses: denoland/setup-deno@v2
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
-          deno-version: v2.9.3
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: deno install --frozen
+        run: pnpm install --frozen-lockfile
 
       - name: Audit dependencies
-        run: deno audit
+        run: pnpm audit
 
       - name: Run format check
-        run: deno task format:check
+        run: pnpm run format:check
 
       - name: Run lint
-        run: deno task lint:github
+        run: pnpm run lint:github
 
       - name: Run typecheck
-        run: deno task typecheck
+        run: pnpm run typecheck
 
       - name: Run tests
-        run: deno task test
+        run: pnpm run test
 
       - name: Check migration drift
-        run: deno task db:check
+        run: pnpm run db:check
 
       - name: Run app build
         env:
           NODE_ENV: production
-        run: deno task build
+        run: pnpm run build
 
       - name: Set up Nix
         uses: DeterminateSystems/nix-installer-action@v20
-
-      - name: Check Nix dependency hashes
-        run: scripts/update-deno-deps-hashes.sh --check
 
       - name: Run Nix flake check
         run: nix flake check

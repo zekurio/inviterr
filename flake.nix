@@ -20,6 +20,18 @@
         "x86_64-linux"
       ];
 
+      # sharp's prebuilt addon dlopens libstdc++, which has no global search
+      # path on NixOS, so loading it fails and takes SSR down app-wide. Its
+      # own RUNPATH already resolves libvips relative to $ORIGIN, so only the
+      # compiler runtime is missing. Rewriting RPATHs with autoPatchelfHook
+      # corrupts the prebuilt addon (it segfaults on load), so extend the
+      # loader search path at launch instead.
+      sharpLibraryPath =
+        pkgs:
+        lib.optionalString pkgs.stdenvNoCC.hostPlatform.isLinux ''
+          export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        '';
+
       mkInviterrPackage =
         pkgs:
         {
@@ -29,45 +41,19 @@
           dbPath ? "./data/inviterr.db",
           configPath ? "./data/config.json",
           logLevel ? "info",
-          denoDepsHashes ? {
-            aarch64-darwin = "sha256-HtoEnAwWekVw9Oj1DQHj+/JuelRa6GSYPzSBjMhg1ds=";
-            x86_64-darwin = "sha256-Nc4JIJ6P6xSZ9EpYXqe0PqCDTOq83HHYVotR8QY+4MA=";
-            aarch64-linux = "sha256-LQ+6gGPm3L773lZjKEW177f03JdSWhpAhPoxwRY3WhU=";
-            x86_64-linux = "sha256-YSaz+fL7QG8fiPbRpTCHRGQt73XV6y/S8SIdxMF4GQ8=";
-          },
+          pnpmDepsHash ? "sha256-8zBYKYHWrj2j2GOswEnHekG3DXqs/d4KOMDz0rFcVIw=",
         }:
         let
           packageJson = lib.importJSON ./package.json;
           version = if appVersion != null then appVersion else packageJson.version;
-          dependencyFingerprint = builtins.substring 0 12 (
-            builtins.hashString "sha256" (
-              builtins.concatStringsSep ":" (
-                map (builtins.hashFile "sha256") [
-                  ./deno.json
-                  ./deno.lock
-                  ./package.json
-                ]
-              )
-            )
-          );
-          system = pkgs.stdenvNoCC.hostPlatform.system;
-          targetOS = if pkgs.stdenvNoCC.hostPlatform.isDarwin then "darwin" else "linux";
-          targetArch = if pkgs.stdenvNoCC.hostPlatform.isAarch64 then "arm64" else "x64";
-          # sharp's prebuilt addon dlopens libstdc++, which has no global search
-          # path on NixOS, so loading it fails and takes SSR down app-wide. Its
-          # own RUNPATH already resolves libvips relative to $ORIGIN, so only the
-          # compiler runtime is missing. Rewriting RPATHs with autoPatchelfHook
-          # corrupts the prebuilt addon (it segfaults on load), so extend the
-          # loader search path at launch instead.
-          nativeLibraryPath = lib.optionalString pkgs.stdenvNoCC.hostPlatform.isLinux ''
-            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-          '';
+          nodejs = pkgs.nodejs_24;
+          pnpm = pkgs.pnpm_10;
           dependencySource = lib.fileset.toSource {
             root = ./.;
             fileset = lib.fileset.unions [
-              ./deno.json
-              ./deno.lock
               ./package.json
+              ./pnpm-lock.yaml
+              ./pnpm-workspace.yaml
             ];
           };
           src = lib.cleanSourceWith {
@@ -91,46 +77,26 @@
                 || baseName == "result"
               );
           };
-          denoDeps = pkgs.stdenvNoCC.mkDerivation {
-            pname = "inviterr-deno-dependencies";
-            version = dependencyFingerprint;
+          # The fetcher downloads every platform's optional dependencies, so one
+          # hash covers all supported systems. Refresh it with
+          # scripts/update-pnpm-deps-hash.sh after pnpm-lock.yaml changes.
+          pnpmDeps = pkgs.fetchPnpmDeps {
+            pname = "inviterr";
             src = dependencySource;
-
-            nativeBuildInputs = [ pkgs.deno ];
-            dontConfigure = true;
-            dontFixup = true;
-
-            buildPhase = ''
-              runHook preBuild
-              export DENO_DIR=$TMPDIR/deno-cache
-              deno install \
-                --os ${targetOS} \
-                --arch ${targetArch} \
-                --frozen \
-                --quiet
-              runHook postBuild
-            '';
-
-            installPhase = ''
-              runHook preInstall
-              mkdir -p $out
-              rm -f node_modules/.deno/.setup-cache.bin node_modules/.deno/.deno.lock
-              # Keep dependency hashes independent of the app version.
-              rmdir node_modules/.deno/${packageJson.name}@${packageJson.version}
-              cp -a node_modules $out/node_modules
-              runHook postInstall
-            '';
-
-            outputHashMode = "recursive";
-            outputHashAlgo = "sha256";
-            outputHash = denoDepsHashes.${system};
+            inherit pnpm;
+            fetcherVersion = 3;
+            hash = pnpmDepsHash;
           };
         in
         pkgs.stdenvNoCC.mkDerivation {
           pname = "inviterr";
-          inherit version src;
+          inherit version src pnpmDeps;
 
-          nativeBuildInputs = [ pkgs.deno ];
+          nativeBuildInputs = [
+            nodejs
+            pnpm
+            pkgs.pnpmConfigHook
+          ];
 
           env = {
             APP_VERSION = version;
@@ -140,15 +106,7 @@
 
           buildPhase = ''
             runHook preBuild
-            cp -R ${denoDeps}/node_modules node_modules
-            chmod -R u+w node_modules
-            export DENO_DIR=$TMPDIR/deno-cache
-            deno run \
-              --cached-only \
-              --node-modules-dir=manual \
-              -A \
-              npm:vite@7.3.7 \
-              build
+            pnpm run build
             runHook postBuild
           '';
 
@@ -171,16 +129,8 @@
             export CONFIG_PATH="''${CONFIG_PATH:-${configPath}}"
             export LOG_LEVEL="''${LOG_LEVEL:-${logLevel}}"
             export MIGRATIONS_PATH="''${MIGRATIONS_PATH:-${placeholder "out"}/share/inviterr/drizzle}"
-            ${nativeLibraryPath}
-            exec ${lib.getExe pkgs.deno} run \
-              --cached-only \
-              --no-prompt \
-              --allow-env \
-              --allow-net \
-              --allow-read \
-              --allow-write \
-              --allow-ffi \
-              --allow-sys \
+            ${sharpLibraryPath pkgs}
+            exec ${lib.getExe nodejs} \
               "${placeholder "out"}/share/inviterr/.output/server/index.mjs" \
               "$@"
             EOF
@@ -190,7 +140,7 @@
           '';
 
           passthru = {
-            inherit denoDeps;
+            inherit nodejs pnpm pnpmDeps;
             withOptions = mkInviterrPackage pkgs;
           };
 
@@ -356,7 +306,6 @@
                 DB_PATH = "${cfg.dataDir}/inviterr.db";
                 CONFIG_PATH = toString cfg.configFile;
                 LOG_LEVEL = cfg.logLevel;
-                DENO_DIR = "${cfg.dataDir}/.deno";
               }
               // lib.optionalAttrs (cfg.appVersion != null) {
                 APP_VERSION = cfg.appVersion;
@@ -406,7 +355,6 @@
               "DB_PATH=/data/inviterr.db"
               "HOST=0.0.0.0"
               "PORT=4173"
-              "DENO_DIR=/data/.deno"
             ];
             ExposedPorts."4173/tcp" = { };
             Volumes."/data" = { };
@@ -429,7 +377,11 @@
         checks.default = inviterr;
 
         devShells.default = pkgs.mkShell {
-          packages = [ pkgs.deno ];
+          packages = [
+            inviterr.nodejs
+            inviterr.pnpm
+          ];
+          shellHook = sharpLibraryPath pkgs;
         };
       }
     )
