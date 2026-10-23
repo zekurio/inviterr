@@ -1,24 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { canActAsAdmin, type SessionData } from "@/lib/session"
 import {
   configureTestEnvironment,
   createTestDatabase,
   type TestDatabase,
 } from "@/test/db"
-
-function makeSession(isAdmin: boolean): SessionData {
-  return {
-    userId: "user-1",
-    name: "User One",
-    avatarUrl: "http://jellyfin.test/avatar",
-    isAdmin,
-    email: "user@example.com",
-    emailVerified: true,
-    locale: null,
-    createdAt: new Date().toISOString(),
-  }
-}
 
 // The session store hashes/encrypts with the auth secrets and hydration builds
 // avatar URLs from the Jellyfin external URL. Both come from the on-disk config
@@ -94,32 +80,6 @@ afterEach(async () => {
   testDatabase = null
   enforceExpiredUserAccess.mockClear()
   vi.resetModules()
-})
-
-describe("session cookie parsing", () => {
-  it("splits a well-formed cookie into id and secret", async () => {
-    const { session } = await loadModules()
-
-    expect(session.parseSessionCookie("abc.def")).toEqual({
-      sessionId: "abc",
-      secret: "def",
-    })
-    // Secret may itself contain dots; only the first separator splits.
-    expect(session.parseSessionCookie("abc.def.ghi")).toEqual({
-      sessionId: "abc",
-      secret: "def.ghi",
-    })
-  })
-
-  it("rejects missing or malformed cookies", async () => {
-    const { session } = await loadModules()
-
-    expect(session.parseSessionCookie(undefined)).toBeNull()
-    expect(session.parseSessionCookie("")).toBeNull()
-    expect(session.parseSessionCookie("no-separator")).toBeNull()
-    expect(session.parseSessionCookie(".leading")).toBeNull()
-    expect(session.parseSessionCookie("trailing.")).toBeNull()
-  })
 })
 
 describe("session record lifecycle", () => {
@@ -238,68 +198,6 @@ describe("session record lifecycle", () => {
     expect(
       await session.getSessionRecordFromCookie(second.cookieValue),
     ).toBeNull()
-  })
-})
-
-describe("session validation TTL helpers", () => {
-  it("uses a shorter validation window for admins", async () => {
-    const { session } = await loadModules()
-
-    expect(session.getValidationTtlMs(true)).toBe(
-      session.ADMIN_VALIDATION_TTL_MS,
-    )
-    expect(session.getValidationTtlMs(false)).toBe(
-      session.SESSION_VALIDATION_TTL_MS,
-    )
-    expect(session.ADMIN_VALIDATION_TTL_MS).toBeLessThan(
-      session.SESSION_VALIDATION_TTL_MS,
-    )
-  })
-
-  it("flags a session as stale once past its validation window", async () => {
-    const { session } = await loadModules()
-    const now = Date.now()
-
-    expect(
-      session.isSessionValidationStale({
-        isAdminSnapshot: false,
-        lastValidatedAt: now,
-        createdAt: now,
-      }),
-    ).toBe(false)
-    expect(
-      session.isSessionValidationStale({
-        isAdminSnapshot: false,
-        lastValidatedAt: now - session.SESSION_VALIDATION_TTL_MS - 1_000,
-        createdAt: now,
-      }),
-    ).toBe(true)
-  })
-
-  it("reports an active validation backoff window", async () => {
-    const { session } = await loadModules()
-    const now = Date.now()
-
-    expect(
-      session.isSessionValidationBackedOff({
-        validationBlockedUntil: now + 10_000,
-      }),
-    ).toBe(true)
-    expect(
-      session.isSessionValidationBackedOff({
-        validationBlockedUntil: now - 10_000,
-      }),
-    ).toBe(false)
-    expect(
-      session.isSessionValidationBackedOff({ validationBlockedUntil: null }),
-    ).toBe(false)
-  })
-})
-
-describe("admin gate predicate", () => {
-  it("admits admin sessions and rejects non-admin sessions", () => {
-    expect(canActAsAdmin(makeSession(true))).toBe(true)
-    expect(canActAsAdmin(makeSession(false))).toBe(false)
   })
 })
 

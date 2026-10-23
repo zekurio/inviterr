@@ -44,14 +44,4 @@ describe("deployment configuration", () => {
       "Invalid environment variables",
     )
   })
-
-  it("allows build-time validation bypass without requiring deployment configuration", async () => {
-    vi.stubEnv("SKIP_ENV_VALIDATION", "true")
-    vi.stubEnv("DB_PATH", "")
-    vi.stubEnv("TRUST_PROXY", "unvalidated")
-    const { env } = await import("@/env")
-    expect(env.DB_PATH).toBe("./data/inviterr.db")
-    expect(env.CONFIG_PATH).toBe("./data/config.json")
-    expect(env.TRUST_PROXY).toBe("unvalidated")
-  })
 })

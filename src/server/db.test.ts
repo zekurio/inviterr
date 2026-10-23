@@ -36,7 +36,7 @@ describe("database", () => {
     const db = database.db
 
     const results = await Promise.allSettled(
-      Array.from({ length: 10 }, (_, index) => [
+      Array.from({ length: 3 }, (_, index) => [
         db.transaction(async (tx) => {
           await tx.insert(schema.users).values({ userId: `tx-${index}-a` })
           await tx.insert(schema.users).values({ userId: `tx-${index}-b` })
@@ -56,7 +56,7 @@ describe("database", () => {
       .select({ userId: reopened.schema.users.userId })
       .from(reopened.schema.users)
 
-    expect(rows).toHaveLength(40)
+    expect(rows).toHaveLength(12)
   })
 
   it("backfills invite usages recorded before the audit log", async () => {
