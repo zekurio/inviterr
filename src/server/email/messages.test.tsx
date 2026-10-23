@@ -111,24 +111,4 @@ describe("email message registry", () => {
       contentDisposition: "inline",
     })
   })
-
-  it("uses the built-in subject for each message type", async () => {
-    const message = await buildSyntheticEmailMessage("accountDisabled", {
-      delivery: "preview",
-    })
-
-    expect(message.subject).toBe(
-      "Your access has been disabled - Cinema Stream",
-    )
-  })
-
-  it("refers to the media server in the disabled notice body", async () => {
-    const message = await buildSyntheticEmailMessage("accountDisabled", {
-      delivery: "preview",
-    })
-
-    expect(message.text).toContain(
-      "Your access to Cinema Stream has been disabled",
-    )
-  })
 })

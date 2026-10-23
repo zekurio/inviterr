@@ -50,10 +50,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.sha }}
 
-      - name: Set up Deno
-        uses: denoland/setup-deno@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
         with:
-          deno-version: v2.9.3
+          node-version: 24
 
       - id: release
         name: Resolve version, commit, and tag
@@ -63,7 +63,7 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          current="$(deno eval 'console.log(JSON.parse(Deno.readTextFileSync("package.json")).version)')"
+          current="$(node -p "require('./package.json').version")"
           if [[ ! "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid package.json version: $current" >&2
             exit 1
@@ -113,12 +113,13 @@ jobs:
               "41898282+github-actions[bot]@users.noreply.github.com"
 
             if [[ "$version" != "$current" ]]; then
-              # Keep the Deno template expression literal until Deno evaluates it.
+              # Keep the template expression literal until Node evaluates it.
               # shellcheck disable=SC2016
-              RELEASE_VERSION="$version" deno eval '
-                  const packageJson = JSON.parse(Deno.readTextFileSync("package.json"))
-                  packageJson.version = Deno.env.get("RELEASE_VERSION")
-                  Deno.writeTextFileSync(
+              RELEASE_VERSION="$version" node -e '
+                  const fs = require("node:fs")
+                  const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"))
+                  packageJson.version = process.env.RELEASE_VERSION
+                  fs.writeFileSync(
                     "package.json",
                     `${JSON.stringify(packageJson, null, 2)}\n`,
                   )

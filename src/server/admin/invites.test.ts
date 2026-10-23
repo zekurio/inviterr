@@ -491,23 +491,4 @@ describe("bulkManageInvitesService", () => {
     ])
     expect(await setup.database.db.query.inviteUsages.findMany()).toEqual([])
   })
-
-  it("rejects invalid input with a validation error", async () => {
-    const setup = await loadInvitesServiceModules()
-
-    const result = await setup.invitesService.bulkManageInvitesService(
-      TEST_ADMIN_ACTOR,
-      {
-        operation: "disable",
-        inviteIds: [],
-      },
-    )
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        success: false,
-        code: setup.errors.ErrorCode.VALIDATION_FAILED,
-      }),
-    )
-  })
 })

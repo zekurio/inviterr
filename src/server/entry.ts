@@ -1,11 +1,10 @@
-// Production server entry. Mirrors Nitro's deno-server preset entry
-// (nitro/dist/presets/deno/runtime/deno-server.mjs) minus the websocket,
+// Production server entry. Mirrors Nitro's node-server preset entry
+// (nitro/dist/presets/node/runtime/node-server.mjs) minus the websocket,
 // scheduled-task and tracing wiring the app does not use, so that the app
 // owns shutdown: srvx's built-in handler closes the listener on SIGINT/SIGTERM
 // but never exits, and the process lingered until systemd killed it (#39).
-// Importing `serve` from "srvx" picks the adapter for the running runtime.
 import { useNitroApp } from "nitro/app"
-import { serve } from "srvx"
+import { serve } from "srvx/node"
 
 import { createChildLogger } from "@/server/logger"
 import { createShutdown } from "@/server/shutdown"

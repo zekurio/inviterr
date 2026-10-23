@@ -18,10 +18,10 @@ type ShutdownOptions = {
 
 // Builds the signal handler that stops the server and then exits the process.
 // Exiting explicitly matters: installing a signal listener disables the
-// runtime's default termination, and React's server renderer keeps a started
-// MessagePort around that pins the Deno event loop even after the listener is
-// closed, so the process would otherwise linger forever. A second signal while
-// shutting down exits immediately.
+// runtime's default termination, and the periodic maintenance timers
+// (password-reset scans, user expiry sweeps) keep the event loop alive after
+// the listener is closed, so the process would otherwise linger forever. A
+// second signal while shutting down exits immediately.
 export function createShutdown(
   options: ShutdownOptions,
 ): (signal: string) => Promise<void> {

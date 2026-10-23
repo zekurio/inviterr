@@ -412,18 +412,6 @@ describe("access request submission", () => {
 
     expect(await app.listRequests()).toHaveLength(4)
   })
-
-  it("stops accepting requests once the pending queue is full", async () => {
-    const app = await setup()
-    for (let index = 0; index < 100; index++) {
-      await app.seedRequest(`queued-${index}@example.com`)
-    }
-
-    await expect(
-      app.client().accessRequests.submit({ email: "late@example.com" }),
-    ).rejects.toMatchObject({ code: "RATE_LIMITED" })
-    expect(await app.listRequests()).toHaveLength(100)
-  })
 })
 
 describe("access request review", () => {

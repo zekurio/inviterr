@@ -16,26 +16,29 @@
   `flake.nix` (package, dev shell, container image, `services.inviterr` module).
 - The default branch is `dev`; local `main` may not exist, so diff against
   `dev` or `origin/dev`.
-- Deno 2.9.x is the package manager, task runner, dev runtime, and production
-  runtime; never use npm, pnpm, yarn, or Bun. `package.json` stays the npm
-  dependency manifest, `deno.lock` is the only lockfile, `node_modules/` is
-  generated. `deno install --frozen` installs locked deps.
-- Tasks live in `deno.json`: `dev`, `build`, `start`, `format`, `format:check`,
-  `lint`, `lint:fix`, `lint:github`, `typecheck`, `check` (lint + typecheck),
-  `test`, `db:generate|migrate|push|studio`, `db:check`.
+- Node.js 24 is the dev and production runtime and pnpm 10 (pinned by
+  `packageManager` in `package.json`) is the package manager and script
+  runner; never use npm, yarn, Bun, or Deno. `pnpm-lock.yaml` is the only
+  lockfile, `pnpm-workspace.yaml` holds pnpm settings (dependency overrides,
+  build-script policy), `node_modules/` is generated.
+  `pnpm install --frozen-lockfile` installs locked deps.
+- Scripts live in `package.json` and run as `pnpm run <name>`: `dev`, `build`,
+  `start`, `format`, `format:check`, `lint`, `lint:fix`, `lint:github`,
+  `typecheck`, `check` (lint + typecheck), `test`,
+  `db:generate|migrate|push|studio`, `db:check`.
 - Formatting is oxfmt and linting is oxlint (type-aware, zero warnings,
   `no-console`, `no-explicit-any`, `prefer-const`, `no-else-return` are
   errors), not Prettier/ESLint; do not add ESLint or Prettier configs.
   Typecheck runs `tsgo --noEmit` (`@typescript/native-preview`).
-- All of `deno task format:check`, `deno task lint`, `deno task typecheck`, and
-  `deno task test` must pass before a coding task is complete. Persisted-shape
-  changes also need the generated migration plus `deno task db:check`.
+- All of `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, and
+  `pnpm run test` must pass before a coding task is complete. Persisted-shape
+  changes also need the generated migration plus `pnpm run db:check`.
 - Always name migrations descriptively in snake_case:
-  `deno task db:generate --name=<what_changed>` (add `--custom` for data
+  `pnpm run db:generate --name=<what_changed>` (add `--custom` for data
   migrations), never drizzle's random names. To rename a migration, change
   only the `.sql` filename and its `_journal.json` `tag`; keep the SQL and
   `when` unchanged, since the migrator tracks applied migrations by those.
-- Do not run `deno task build` during normal app work; it can disrupt a running
+- Do not run `pnpm run build` during normal app work; it can disrupt a running
   dev server. Run Nix checks (`nix flake check`) only when touching packaging,
   `flake.nix`, or the NixOS module.
 - Priorities in order: performance (no waterfalls, optimistic updates),
@@ -158,5 +161,5 @@ Existing schema has camelCase TS fields; do not churn it for style unless the mi
 - User-facing strings are i18n message keys (`src/lib/i18n`); add every key to both `messages/en.ts` and `messages/de.ts`. Error codes map to locale keys via `resolveErrorKey`.
 - Reuse `src/components/ui` primitives before adding local ones.
 - Test observable app behavior: submitted form errors, RPC authorization, persisted state, integration requests, and recovery after failures. Prefer these over separate schema-shape, library-primitive, or exhaustive format-permutation tests. Keep focused regression tests for bugs, but do not duplicate the same validation across helper, schema, and service suites or combine unrelated assertions just to lower the test count.
-- Tests are Vitest (`src/**/*.test.ts(x)`) run under Deno. Avoid mocks; mock only external boundaries. DB-backed suites use `src/test/db.ts` (`createTestDatabase()`, `configureTestEnvironment()`, `vi.resetModules()`, dynamic imports so modules read temp env, cleanup in `afterEach`/`afterAll`) — follow `src/server/tokens.test.ts`, `session.test.ts`, or `invites.test.ts`. Never duplicate implementation logic into tests.
-- After dependency changes run `deno install`, commit `package.json` and `deno.lock`, then refresh the per-platform Nix hashes with `scripts/update-deno-deps-hashes.sh` from `nix develop` (CI verifies with `--check`).
+- Tests are Vitest (`src/**/*.test.ts(x)`) run under Node. Avoid mocks; mock only external boundaries. DB-backed suites use `src/test/db.ts` (`createTestDatabase()`, `configureTestEnvironment()`, `vi.resetModules()`, dynamic imports so modules read temp env, cleanup in `afterEach`/`afterAll`) — follow `src/server/tokens.test.ts`, `session.test.ts`, or `invites.test.ts`. Never duplicate implementation logic into tests.
+- After dependency changes run `pnpm install`, commit `package.json` and `pnpm-lock.yaml`, then refresh the Nix dependency hash with `scripts/update-pnpm-deps-hash.sh` (one hash covers all platforms; `nix flake check` in CI verifies it).

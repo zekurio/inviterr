@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto"
-
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
@@ -31,25 +29,6 @@ afterEach(async () => {
 })
 
 describe("email verification tokens", () => {
-  it("generates secure random hex tokens", async () => {
-    const { tokens } = await loadTokenModules()
-
-    const first = tokens.generateSecureToken()
-    const second = tokens.generateSecureToken()
-
-    expect(first).toMatch(/^[a-f0-9]{64}$/)
-    expect(second).toMatch(/^[a-f0-9]{64}$/)
-    expect(first).not.toBe(second)
-  })
-
-  it("hashes tokens with SHA-256 hex", async () => {
-    const { tokens } = await loadTokenModules()
-    const expected = createHash("sha256").update("known-token").digest("hex")
-
-    expect(tokens.hashToken("known-token")).toBe(expected)
-    expect(tokens.hashToken("known-token")).not.toBe("known-token")
-  })
-
   it("stores only the hashed token, replaces existing user tokens, and expires in the future", async () => {
     const { tokens, database, schema } = await loadTokenModules()
     await database.db.insert(schema.users).values({

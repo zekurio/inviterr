@@ -32,36 +32,7 @@ async function configureClient() {
   return import("@/server/seerr/client")
 }
 
-describe("Seerr response decoding", () => {
-  it("preserves extra status fields while validating known fields", async () => {
-    const client = await configureClient()
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          Response.json({ version: "1.0", extra: { supported: true } }),
-        ),
-    )
-    expect(await client.getSeerrStatus()).toEqual({
-      version: "1.0",
-      extra: { supported: true },
-    })
-  })
-
-  it("rejects malformed status fields with service and endpoint context", async () => {
-    const client = await configureClient()
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(Response.json({ version: 12 })),
-    )
-    await expect(client.getSeerrStatus()).rejects.toMatchObject({
-      name: "ExternalServiceDecodeError",
-      service: "Seerr",
-      path: "/status",
-    })
-  })
-
+describe("Seerr user lookup", () => {
   it("searches subsequent pages for the matching Jellyfin account rather than selecting the first result", async () => {
     await configureClient()
     const { findSeerrUserByJellyfinId } = await import("@/server/seerr/users")

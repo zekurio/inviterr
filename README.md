@@ -18,7 +18,7 @@ substantial AI-agent involvement. Expect sharp edges.
 
 - Jellyfin `10.11.x` plus an administrator API key
 - Optional: Seerr `3.x.x`, and an SMTP server for verification and reset email
-- Deno 2.9.x for a bare-metal install
+- Node.js 24 and pnpm 10 for a bare-metal install
 
 Always deploy a tagged release (`vX.Y.Z`), never a moving branch.
 
@@ -80,17 +80,17 @@ docker run --name inviterr \
 ```bash
 git clone https://github.com/zekurio/inviterr.git && cd inviterr
 git checkout vX.Y.Z
-deno install --frozen
+pnpm install --frozen-lockfile
 cp .env.example .env
 umask 077 && install -d -m 0700 data && chmod 0600 .env
-deno task build
-deno task --env-file=.env start
+pnpm run build
+pnpm start
 ```
 
 Run from the repository root so the bundled app can find `drizzle/`;
-migrations run automatically at startup. See [`.env.example`](.env.example) for
-the full set: `NODE_ENV`, `HOST`, `PORT`, `DB_PATH`, `CONFIG_PATH`,
-`LOG_LEVEL`, and `TRUST_PROXY`.
+migrations run automatically at startup. `pnpm start` loads `.env` when it
+exists; see [`.env.example`](.env.example) for the full set: `NODE_ENV`,
+`HOST`, `PORT`, `DB_PATH`, `CONFIG_PATH`, `LOG_LEVEL`, and `TRUST_PROXY`.
 
 Keep the state directory, database, config, `.env`, backups, and logs readable
 only by the service account.
@@ -157,28 +157,28 @@ two can invalidate sessions or integration state.
 
 To upgrade, back up, stop the service, move to the new tag (`nix flake update
 inviterr && nixos-rebuild switch`, a new image tag, or `git checkout vX.Y.Z &&
-deno install --frozen && deno task build`), and confirm `/readyz` returns
-`200`. Rollbacks may require restoring the matching backup, not just an older
-tag.
+pnpm install --frozen-lockfile && pnpm run build`), and confirm `/readyz`
+returns `200`. Rollbacks may require restoring the matching backup, not just an
+older tag.
 
 ### Development
 
-Deno is the package manager, task runner, and runtime. `package.json` remains
-the npm dependency manifest; `deno.lock` is the committed lockfile.
+Node.js 24 is the runtime and pnpm 10 the package manager; `pnpm-lock.yaml` is
+the committed lockfile and `pnpm-workspace.yaml` holds pnpm settings.
 
 ```bash
-deno install --frozen
-deno task dev
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
 With [Nix](https://nixos.org): `nix develop` (or `direnv allow`) provides the
 toolchain.
 
-Before opening a pull request, run `deno task format:check`, `deno task lint`,
-`deno task typecheck`, and `deno task test`; schema changes also need a
-generated migration and `deno task db:check`. After changing dependencies, run
-`deno install`, then `scripts/update-deno-deps-hashes.sh` from `nix develop`
-and copy the changed per-platform hashes into `flake.nix`.
+Before opening a pull request, run `pnpm run format:check`, `pnpm run lint`,
+`pnpm run typecheck`, and `pnpm run test`; schema changes also need a
+generated migration and `pnpm run db:check`. After changing dependencies, run
+`pnpm install`, then `scripts/update-pnpm-deps-hash.sh` to refresh the
+dependency hash in `flake.nix`.
 
 [AGENTS.md](AGENTS.md) documents architecture, conventions, and repo patterns.
 

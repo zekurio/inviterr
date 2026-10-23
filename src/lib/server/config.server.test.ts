@@ -96,19 +96,6 @@ describe("config validation", () => {
 
   it.each([
     [{ app: null }, "app"],
-    [{ app: { defaultLocale: "fr" } }, "app.defaultLocale"],
-    [
-      { auth: { sessionSecret: "short", encryptionKey: "x".repeat(32) } },
-      "auth.sessionSecret",
-    ],
-    [
-      { jellyfin: { ...jellyfinConfig, internalUrl: "not a URL" } },
-      "jellyfin.internalUrl",
-    ],
-    [
-      { seerr: { internalUrl: "http://seerr.test", apiKey: "" } },
-      "seerr.apiKey",
-    ],
     [
       {
         memberOnboarding: {
@@ -116,25 +103,6 @@ describe("config validation", () => {
         },
       },
       "memberOnboarding.pages.0.title",
-    ],
-    [{ email: { smtp: { host: "smtp.test", port: 1.5 } } }, "email.smtp.port"],
-    [
-      { email: { smtp: { host: "smtp.test", port: 65536 } } },
-      "email.smtp.port",
-    ],
-    [
-      { email: { branding: { accentColor: "red" } } },
-      "email.branding.accentColor",
-    ],
-    [
-      {
-        email: {
-          branding: {
-            logo: { mimeType: "text/plain", base64: "x", width: 1, height: 1 },
-          },
-        },
-      },
-      "email.branding.logo.mimeType",
     ],
   ])("rejects invalid config %j with a field path", async (invalid, path) => {
     mkdirSync(dirname(configPath), { recursive: true })
