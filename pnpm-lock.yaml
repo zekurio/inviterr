@@ -141,8 +141,8 @@ importers:
         specifier: 3.0.260610-beta
         version: 3.0.260610-beta(@libsql/client@0.17.4)(chokidar@5.0.0)(drizzle-orm@0.45.2(@libsql/client@0.17.4))(jiti@2.7.0)(rollup@4.62.2)(vite@7.3.7(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.15))
       nodemailer:
-        specifier: 10.0.16
-        version: 10.0.16
+        specifier: 10.1.4
+        version: 10.1.4
       pino:
         specifier: 10.3.1
         version: 10.3.1
@@ -3282,8 +3282,8 @@ packages:
     resolution: {integrity: sha512-OmO8+GM1JUZqXET720VrJCwkjUCXmCMQm0Z3UDDRbfNLHS4NEAvY60j5jiFv0tkKw2PNNlqOLhahVmwJIOLDIQ==}
     engines: {node: '>=18'}
 
-  nodemailer@10.0.16:
-    resolution: {integrity: sha512-VL9xKErxN+el77o8eBOuYKUPMyEx7F9hfnDCuiUKJRp9v3wnWMOudYgP/SWbwSHy8rUL4cylobuXtki1LpQS7A==}
+  nodemailer@10.1.4:
+    resolution: {integrity: sha512-EsMnOR2oRv4LGnWvHgcVYkkQ4O2j8KO4WTw6l+PHR4sOXo8SAgIraxtEnGDmotjbhv0hDsu3IuDIFZm8iXwO4A==}
     engines: {node: '>=20.0.0'}
 
   obug@2.2.1:
@@ -6532,7 +6532,7 @@ snapshots:
 
   node-releases@2.0.60: {}
 
-  nodemailer@10.0.16: {}
+  nodemailer@10.1.4: {}
 
   obug@2.2.1: {}
 
